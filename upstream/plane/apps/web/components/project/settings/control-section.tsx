@@ -1,0 +1,91 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+import { useState } from "react";
+import { observer } from "mobx-react";
+import { useParams } from "react-router";
+// plane imports
+import { useTranslation } from "@plane/i18n";
+import { Button } from "@makeplane/propel/components/button";
+// components
+import { SettingsBoxedControlItem } from "@/components/settings/boxed-control-item";
+// hooks
+import { useProject } from "@/hooks/store/use-project";
+// local imports
+import { ArchiveRestoreProjectModal } from "../archive-restore-modal";
+import { DeleteProjectModal } from "../delete-project-modal";
+
+type Props = {
+  projectId: string;
+};
+
+export const GeneralProjectSettingsControlSection = observer(function GeneralProjectSettingsControlSection(
+  props: Props
+) {
+  const { projectId } = props;
+  // states
+  const [selectProject, setSelectedProject] = useState<string | null>(null);
+  const [archiveProject, setArchiveProject] = useState<boolean>(false);
+  // params
+  const { workspaceSlug } = useParams();
+  // store hooks
+  const { currentProjectDetails } = useProject();
+  // translation
+  const { t } = useTranslation();
+
+  if (!currentProjectDetails) return null;
+
+  return (
+    <div className="mt-10">
+      {workspaceSlug && (
+        <ArchiveRestoreProjectModal
+          workspaceSlug={workspaceSlug}
+          projectId={projectId}
+          isOpen={archiveProject}
+          onClose={() => setArchiveProject(false)}
+          archive
+        />
+      )}
+      <DeleteProjectModal
+        project={currentProjectDetails}
+        isOpen={Boolean(selectProject)}
+        onClose={() => setSelectedProject(null)}
+      />
+      <div className="rounded-lg border border-subtle bg-layer-2">
+        {/* Project Selector */}
+        <SettingsBoxedControlItem
+          className="rounded-b-none border-0 border-b"
+          title={t("archive")}
+          description="归档项目将从您的侧边导航中取消列出您的项目，但您仍然可以从项目页面访问它。您可以随时恢复或删除项目。"
+          control={
+            <Button
+              variant="secondary"
+              size="sm"
+              stretch="auto"
+              label={t("archive")}
+              onClick={() => setArchiveProject(true)}
+            />
+          }
+        />
+        {/* Format Selector */}
+        <SettingsBoxedControlItem
+          className="rounded-t-none border-0"
+          title={t("delete")}
+          description="删除项目时，该项目内的所有数据和资源将被永久删除且无法恢复。"
+          control={
+            <Button
+              variant="danger-outline"
+              size="sm"
+              stretch="auto"
+              label={t("delete")}
+              onClick={() => setSelectedProject(currentProjectDetails.id ?? null)}
+            />
+          }
+        />
+      </div>
+    </div>
+  );
+});

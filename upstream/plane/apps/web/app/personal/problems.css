@@ -1,0 +1,56 @@
+/*
+ * 问题列表布局。
+ * 列顺序：标题 / 严重程度 / 优先级 / 状态 / 更新时间 / 操作。
+ * 响应式收敛顺序：更新时间 → 严重程度与优先级 → 仅留标题与操作。
+ */
+.problem-page .problem-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 112px 96px 112px 96px 40px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+}
+
+.problem-page .problem-head {
+  padding-top: 4px;
+  padding-bottom: 12px;
+}
+
+.problem-page .problem-cell {
+  min-width: 0;
+}
+
+.problem-rich-text .tiptap {
+  min-height: 110px;
+}
+
+.problem-mobile-badges {
+  display: none;
+}
+
+@media (max-width: 1050px) {
+  .problem-page .problem-row {
+    grid-template-columns: minmax(180px, 1fr) 108px 92px 108px 40px;
+    gap: 8px;
+  }
+
+  .problem-page .problem-cell-updated {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .problem-page .problem-row {
+    grid-template-columns: minmax(0, 1fr) 112px 40px;
+  }
+
+  .problem-page .problem-cell-severity,
+  .problem-page .problem-cell-priority {
+    display: none;
+  }
+
+  .problem-mobile-badges {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,215 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+import { useCallback, useMemo } from "react";
+import { observer } from "mobx-react";
+import Link from "next/link";
+import { useParams, usePathname } from "next/navigation";
+import { EUserPermissionsLevel, EUserPermissions } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
+import {
+  CyclesOutline,
+  HomeOutline,
+  IntakeOutline,
+  ModuleOutline,
+  PagesOutline,
+  ViewsOutline,
+  WorkItemsOutline,
+} from "@makeplane/propel/icons";
+// plane ui
+// components
+import { ListItem, ListItemLabel } from "@makeplane/propel/components/list";
+import { ListItemLink } from "@makeplane/propel/elements/list";
+import type { TNavigationItem } from "@/components/navigation/tab-navigation-root";
+// hooks
+import { useAppTheme } from "@/hooks/store/use-app-theme";
+import { useIssueDetail } from "@/hooks/store/use-issue-detail";
+import { useProject } from "@/hooks/store/use-project";
+import { useUserPermissions } from "@/hooks/store/user";
+
+/**
+ * The sidebar and the tab strip both describe the same project sections, so the item shape lives in
+ * one place (`components/navigation/tab-navigation-root`) and is re-exported here for existing
+ * consumers of this module.
+ */
+export type { TNavigationItem };
+
+type TProjectItemsProps = {
+  workspaceSlug: string;
+  projectId: string;
+  additionalNavigationItems?: (workspaceSlug: string, projectId: string) => TNavigationItem[];
+};
+
+export const ProjectNavigation = observer(function ProjectNavigation(props: TProjectItemsProps) {
+  const { workspaceSlug, projectId, additionalNavigationItems } = props;
+  const { workItem: workItemIdentifierFromRoute } = useParams();
+  // store hooks
+  const { t } = useTranslation();
+  const { isExtendedProjectSidebarOpened, toggleExtendedProjectSidebar, toggleSidebar } = useAppTheme();
+  const { getPartialProjectById } = useProject();
+  const { allowPermissions } = useUserPermissions();
+  const {
+    issue: { getIssueIdByIdentifier, getIssueById },
+  } = useIssueDetail();
+  // pathname
+  const pathname = usePathname();
+  // derived values
+  const workItemId = workItemIdentifierFromRoute
+    ? getIssueIdByIdentifier(workItemIdentifierFromRoute?.toString())
+    : undefined;
+  const workItem = workItemId ? getIssueById(workItemId) : undefined;
+  const project = getPartialProjectById(projectId);
+  // handlers
+  const handleProjectClick = () => {
+    if (window.innerWidth < 768) {
+      toggleSidebar();
+    }
+    // close the extended sidebar if it is open
+    if (isExtendedProjectSidebarOpened) {
+      toggleExtendedProjectSidebar(false);
+    }
+  };
+
+  const baseNavigation = useCallback(
+    (workspaceSlug: string, projectId: string): TNavigationItem[] => [
+      {
+        i18n_key: "sidebar.overview",
+        key: "overview",
+        name: "概述",
+        href: `/${workspaceSlug}/projects/${projectId}/overview`,
+        icon: HomeOutline,
+        access: [EUserPermissions.ADMIN, EUserPermissions.MEMBER, EUserPermissions.GUEST],
+        shouldRender: true,
+        sortOrder: 0,
+      },
+      {
+        i18n_key: "sidebar.work_items",
+        key: "work_items",
+        name: "工作项",
+        href: `/${workspaceSlug}/projects/${projectId}/issues`,
+        icon: WorkItemsOutline,
+        access: [EUserPermissions.ADMIN, EUserPermissions.MEMBER, EUserPermissions.GUEST],
+        shouldRender: true,
+        sortOrder: 1,
+      },
+      {
+        i18n_key: "sidebar.cycles",
+        key: "cycles",
+        name: "周期",
+        href: `/${workspaceSlug}/projects/${projectId}/cycles`,
+        icon: CyclesOutline,
+        access: [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
+        shouldRender: project?.cycle_view ?? false,
+        sortOrder: 2,
+      },
+      {
+        i18n_key: "sidebar.modules",
+        key: "modules",
+        name: "模块",
+        href: `/${workspaceSlug}/projects/${projectId}/modules`,
+        icon: ModuleOutline,
+        access: [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
+        shouldRender: project?.module_view ?? false,
+        sortOrder: 3,
+      },
+      {
+        i18n_key: "sidebar.views",
+        key: "views",
+        name: "视图",
+        href: `/${workspaceSlug}/projects/${projectId}/views`,
+        icon: ViewsOutline,
+        access: [EUserPermissions.ADMIN, EUserPermissions.MEMBER, EUserPermissions.GUEST],
+        shouldRender: project?.issue_views_view ?? false,
+        sortOrder: 4,
+      },
+      {
+        i18n_key: "sidebar.pages",
+        key: "pages",
+        name: "页面",
+        href: `/${workspaceSlug}/projects/${projectId}/pages`,
+        icon: PagesOutline,
+        access: [EUserPermissions.ADMIN, EUserPermissions.MEMBER, EUserPermissions.GUEST],
+        shouldRender: project?.page_view ?? false,
+        sortOrder: 5,
+      },
+      {
+        i18n_key: "sidebar.intake",
+        key: "intake",
+        name: "收件箱",
+        href: `/${workspaceSlug}/projects/${projectId}/intake`,
+        icon: IntakeOutline,
+        access: [EUserPermissions.ADMIN, EUserPermissions.MEMBER, EUserPermissions.GUEST],
+        shouldRender: project?.inbox_view ?? false,
+        sortOrder: 6,
+      },
+    ],
+    [project]
+  );
+
+  // memoized navigation items and adding additional navigation items
+  const navigationItemsMemo = useMemo(() => {
+    const navigationItems = (workspaceSlug: string, projectId: string): TNavigationItem[] => {
+      const navItems = baseNavigation(workspaceSlug, projectId);
+
+      if (additionalNavigationItems) {
+        navItems.push(...additionalNavigationItems(workspaceSlug, projectId));
+      }
+
+      return navItems;
+    };
+
+    // sort navigation items by sortOrder
+    const sortedNavigationItems = navigationItems(workspaceSlug, projectId).sort(
+      (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)
+    );
+
+    return sortedNavigationItems;
+  }, [workspaceSlug, projectId, baseNavigation, additionalNavigationItems]);
+
+  const isActive = useCallback(
+    (item: TNavigationItem) => {
+      // work item condition
+      const workItemCondition = workItemId && workItem && !workItem?.is_epic && workItem?.project_id === projectId;
+      // epic condition
+      const epicCondition = workItemId && workItem && workItem?.is_epic && workItem?.project_id === projectId;
+      // is active
+      const isWorkItemActive = item.key === "work_items" && workItemCondition;
+      const isEpicActive = item.key === "epics" && epicCondition;
+      // pathname condition
+      const isPathnameActive = pathname.includes(item.href);
+      // return
+      return isWorkItemActive || isEpicActive || isPathnameActive;
+    },
+    [pathname, workItem, workItemId, projectId]
+  );
+
+  if (!project) return null;
+
+  return (
+    <>
+      {navigationItemsMemo.map((item) => {
+        if (!item.shouldRender) return;
+
+        const hasAccess = allowPermissions(item.access, EUserPermissionsLevel.PROJECT, workspaceSlug, project.id);
+        if (!hasAccess) return null;
+
+        return (
+          <ListItem key={item.key} density="compact">
+            <ListItemLink
+              href={item.href}
+              render={<Link href={item.href} />}
+              onClick={handleProjectClick}
+              aria-current={isActive(item) ? "page" : undefined}
+            >
+              <item.icon className={`size-4 flex-shrink-0 ${item.name === "Intake" ? "stroke-1" : "stroke-[1.5]"}`} />
+              <ListItemLabel>{t(item.i18n_key)}</ListItemLabel>
+            </ListItemLink>
+          </ListItem>
+        );
+      })}
+    </>
+  );
+});

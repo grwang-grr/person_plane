@@ -1,0 +1,131 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+import { observer } from "mobx-react";
+import {
+  AlertOctagonOutline,
+  AnalyticsOutline,
+  BarOutline,
+  CircleDashedOutline,
+  FolderOutline,
+  SearchOutline,
+} from "@makeplane/propel/icons";
+// plane imports
+
+import { useTranslation } from "@plane/i18n";
+
+import { ContentWrapper } from "@plane/blocks/layout";
+import { cn } from "@plane/utils";
+// assets
+import ctaL1Dark from "@/app/assets/workspace-active-cycles/cta-l-1-dark.webp?url";
+import ctaL1Light from "@/app/assets/workspace-active-cycles/cta-l-1-light.webp?url";
+import ctaR1Dark from "@/app/assets/workspace-active-cycles/cta-r-1-dark.webp?url";
+import ctaR1Light from "@/app/assets/workspace-active-cycles/cta-r-1-light.webp?url";
+import ctaR2Dark from "@/app/assets/workspace-active-cycles/cta-r-2-dark.webp?url";
+import ctaR2Light from "@/app/assets/workspace-active-cycles/cta-r-2-light.webp?url";
+// components
+
+// hooks
+import { useUser } from "@/hooks/store/user";
+
+export const WORKSPACE_ACTIVE_CYCLES_DETAILS = [
+  {
+    key: "10000_feet_view",
+    title: "所有活动周期的全局视图。",
+    description:
+      "放大视角，一次性查看所有项目中正在进行的周期，而不是在每个项目中逐个查看周期。",
+    icon: FolderOutline,
+  },
+  {
+    key: "get_snapshot_of_each_active_cycle",
+    title: "获取每个活动周期的快照。",
+    description:
+      "跟踪所有活动周期的高级指标，查看其进度状态，并了解与截止日期相关的范围。",
+    icon: CircleDashedOutline,
+  },
+  {
+    key: "compare_burndowns",
+    title: "比较燃尽图。",
+    description: "通过周期燃尽图查看工作进展。",
+    icon: BarOutline,
+  },
+  {
+    key: "quickly_see_make_or_break_issues",
+    title: "快速查看关键工作项。",
+    description:
+      "预览每个周期中与截止日期相关的高优先级工作项。一键查看每个周期的所有工作项。",
+    icon: AlertOctagonOutline,
+  },
+  {
+    key: "zoom_into_cycles_that_need_attention",
+    title: "查看需要关注的周期。",
+    description: "一键查看未达到预期的周期状态。",
+    icon: SearchOutline,
+  },
+  {
+    key: "stay_ahead_of_blockers",
+    title: "提前预防阻塞。",
+    description:
+      "发现项目中的问题，查看不同周期之间的依赖关系。",
+    icon: AnalyticsOutline,
+  },
+];
+
+export const WorkspaceActiveCyclesUpgrade = observer(function WorkspaceActiveCyclesUpgrade() {
+  const { t } = useTranslation();
+  // store hooks
+  const {
+    userProfile: { data: userProfile },
+  } = useUser();
+
+  const isDarkMode = userProfile?.theme.theme === "dark";
+
+  return (
+    <ContentWrapper className="gap-10">
+      <div
+        className={cn("item-center flex min-h-[25rem] justify-between rounded-xl", {
+          "bg-gradient-to-l from-[#CFCFCF] to-[#212121]": userProfile?.theme.theme === "dark",
+          "bg-gradient-to-l from-[#3b5ec6] to-[#f5f7fe]": userProfile?.theme.theme === "light",
+        })}
+      >
+        <div className="relative flex flex-col justify-center gap-7 px-14 lg:w-1/2">
+          <div className="flex max-w-64 flex-col gap-2">
+            <h2 className="text-h4-semibold">{t("on_demand_snapshots_of_all_your_cycles")}</h2>
+            <p className="text-body-sm-medium text-tertiary">{t("active_cycles_description")}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <></>
+          </div>
+          <span className="absolute top-0 left-0">
+            <img
+              src={isDarkMode ? ctaL1Dark : ctaL1Light}
+              className="h-[125px] w-[125px] rounded-xl object-contain"
+              alt="l-1"
+            />
+          </span>
+        </div>
+        <div className="relative hidden w-1/2 lg:block">
+          <span className="absolute right-0 bottom-0">
+            <img src={isDarkMode ? ctaR1Dark : ctaR1Light} className="h-full w-full object-contain" alt="r-1" />
+          </span>
+          <span className="absolute right-1/2 -bottom-16 rounded-xl">
+            <img src={isDarkMode ? ctaR2Dark : ctaR2Light} className="h-full w-full object-contain" alt="r-2" />
+          </span>
+        </div>
+      </div>
+      <div className="grid h-full grid-cols-1 gap-5 pb-8 lg:grid-cols-2 xl:grid-cols-3">
+        {WORKSPACE_ACTIVE_CYCLES_DETAILS.map((item) => (
+          <div key={item.title} className="flex min-h-32 w-full flex-col gap-2 rounded-md bg-layer-1 p-4">
+            <div className="flex justify-between gap-2">
+              <h3 className="font-medium">{t(item.key)}</h3>
+              <item.icon className="text-blue-500 mt-1 h-4 w-4" />
+            </div>
+            <span className="text-body-xs-regular text-tertiary">{t(`${item.key}_description`)}</span>
+          </div>
+        ))}
+      </div>
+    </ContentWrapper>
+  );
+});

@@ -1,0 +1,8 @@
+{
+  "source": "https://github.com/makeplane/plane",
+  "baseline_commit": "618d0eb74658329a6f6e92434ac54231422c5b96",
+  "copied_from": "D:\\forty\\xmgl\\planee",
+  "note": "Includes earlier local Chinese/branding/Windows adjustments; personal changes are applied here only.",
+  "prepared_at": "20261112T062353588510Z",
+  "pre_migration_backup": "D:\\forty\\xmgl\\wplane\\data\\backups\\before-plane-20261112T062353588510Z"
+}

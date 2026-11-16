@@ -1,0 +1,19 @@
+{
+  "created_at": "20261112T062353588510Z",
+  "database_method": "sqlite3.Connection.backup (includes committed WAL data)",
+  "source_database": "D:\\forty\\xmgl\\wplane\\data\\database\\wplane.sqlite3",
+  "table_counts": {
+    "alembic_version": 1,
+    "projects": 1,
+    "work_items": 0,
+    "stickies": 0,
+    "activities": 1,
+    "recents": 1
+  },
+  "files": {
+    "wplane.sqlite3": "e36a6899b344e2e3a34af933f79ddeea7dd661bd1376ec5b3b175aee19341b4d",
+    "wplane.sqlite3-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "wplane.sqlite3-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "attachments\\.gitkeep": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  }
+}

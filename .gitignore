@@ -1,0 +1,62 @@
+# ============================================================
+# person_plane 上传范围
+#   上传：第二版（upstream/plane）+ 运行数据（data/）+ 项目文档
+#   不上传：第一版（apps/、packages/）及其配套工具与工作区配置
+# ============================================================
+
+# --- 依赖与构建产物 ---
+node_modules/
+.pnpm-store/
+.venv/
+dist/
+build/
+.next/
+.turbo/
+.react-router/
+coverage/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.tsbuildinfo
+.DS_Store
+
+# --- 第一版源码与配套工具（不上传）---
+/apps/
+/packages/
+/tests/
+/start.cmd
+/package.json
+/pnpm-workspace.yaml
+/pnpm-lock.yaml
+/.oxlintrc.json
+/.oxfmtrc.json
+/.npmrc
+/.node-version
+/.editorconfig
+/.env
+/.env.example
+/scripts/windows/
+/scripts/audit-api-chinese.py
+/scripts/audit-chinese.cjs
+/scripts/audit-translation-keys.cjs
+/scripts/chinese-api-audit.json
+/scripts/chinese-audit.json
+/scripts/chinese-ui.tsv
+/scripts/prepare_problem_ui.py
+
+# --- 运行数据（按需求上传），以下例外 ---
+# Django SECRET_KEY（会话签名 / 邀请令牌 / 许可加密）：泄露即可伪造登录态
+data/.personal-secret
+# 运行中数据库的 WAL 热日志，不属于一致快照
+data/database/*.sqlite3-wal
+data/database/*.sqlite3-shm
+# 进程锁文件
+data/.personal-data.lock
+# 构建与验证临时产物，不是项目数据
+data/logs/
+data/tmp/
+data/backups/.staging-*/
+# 备份包副本：data/database/*.sqlite3 已上传，这两个 zip 是同批数据的备份副本；
+# 且它们的权限是显式写死的，沙箱无法读取，无法纳入版本库
+data/backups/*.zip
