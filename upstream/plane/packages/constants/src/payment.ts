@@ -35,7 +35,7 @@ export const PLANE_COMMUNITY_PRODUCTS: Record<string, IPaymentProduct> = {
     id: EProductSubscriptionEnum.PRO,
     name: "专业版",
     description:
-      "解锁更多视图、周期、页面、报表和仪表盘功能。",
+      "解锁更多视图、周期、文档、报表和仪表盘功能。",
     type: "PRO",
     prices: [
       {

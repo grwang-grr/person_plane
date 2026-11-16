@@ -53,7 +53,7 @@ export const DeletePageModal = observer(function DeletePageModal(props: TConfirm
       setToast({
         type: "success",
         title: "成功！",
-        message: "页面已删除。",
+        message: "文档已删除。",
       });
 
       if (routePageId) {
@@ -63,7 +63,7 @@ export const DeletePageModal = observer(function DeletePageModal(props: TConfirm
       setToast({
         type: "error",
         title: "错误！",
-        message: "无法删除页面，请重试。",
+        message: "无法删除文档，请重试。",
       });
     } finally {
       setIsDeleting(false);
@@ -78,11 +78,11 @@ export const DeletePageModal = observer(function DeletePageModal(props: TConfirm
       handleSubmit={handleDelete}
       isSubmitting={isDeleting}
       isOpen={isOpen}
-      title="删除页面"
+      title="删除文档"
       content={
         <>
-          确定删除此页面吗：{" "}
-          <span className="font-medium break-words break-all text-primary">{getPageName(name)}</span> ？此页面将永久删除，此操作无法撤销。
+          确定删除此文档吗：{" "}
+          <span className="font-medium break-words break-all text-primary">{getPageName(name)}</span> ？此文档将永久删除，此操作无法撤销。
         </>
       }
     />

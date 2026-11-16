@@ -37,6 +37,7 @@ from plane.db.models import (
     ProjectUserProperty,
     State,
     DEFAULT_STATES,
+    seed_state_groups,
     Workspace,
     WorkspaceMember,
 )
@@ -278,6 +279,8 @@ class ProjectViewSet(BaseViewSet):
                     member_id=serializer.data["project_lead"],
                     role=ROLE.ADMIN.value,
                 )
+
+            seed_state_groups(serializer.instance, request.user)
 
             State.objects.bulk_create(
                 [

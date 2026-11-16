@@ -71,7 +71,7 @@ export const ModuleAnalyticsProgress = observer(function ModuleAnalyticsProgress
   const totalEstimatePoints = moduleDetails?.total_estimate_points || 0;
   const chartDistributionData =
     plotType === "points" ? moduleDetails?.estimate_distribution : moduleDetails?.distribution || undefined;
-  const groupedIssues: Record<TStateGroups, number> = useMemo(
+  const groupedIssues: Record<string, number> = useMemo(
     () => ({
       backlog: plotType === "points" ? moduleDetails?.backlog_estimate_points || 0 : moduleDetails?.backlog_issues || 0,
       unstarted:

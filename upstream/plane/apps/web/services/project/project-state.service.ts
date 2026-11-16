@@ -6,7 +6,7 @@
 
 // services
 import { API_BASE_URL } from "@plane/constants";
-import type { IIntakeState, IState } from "@plane/types";
+import type { IIntakeState, IState, TStateGroupDef } from "@plane/types";
 import { APIService } from "@/services/api.service";
 // helpers
 // types
@@ -82,6 +82,49 @@ export class ProjectStateService extends APIService {
 
   async getWorkspaceStates(workspaceSlug: string): Promise<IState[]> {
     return this.get(`/api/workspaces/${workspaceSlug}/states/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  // --- state grouping buckets (see plane.db.models.StateGroupDef) ---
+
+  async getStateGroups(workspaceSlug: string, projectId: string): Promise<TStateGroupDef[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/state-groups/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async createStateGroup(
+    workspaceSlug: string,
+    projectId: string,
+    data: Partial<TStateGroupDef>
+  ): Promise<TStateGroupDef> {
+    return this.post(`/api/workspaces/${workspaceSlug}/projects/${projectId}/state-groups/`, data)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async patchStateGroup(
+    workspaceSlug: string,
+    projectId: string,
+    groupId: string,
+    data: Partial<TStateGroupDef>
+  ): Promise<TStateGroupDef> {
+    return this.patch(`/api/workspaces/${workspaceSlug}/projects/${projectId}/state-groups/${groupId}/`, data)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async deleteStateGroup(workspaceSlug: string, projectId: string, groupId: string): Promise<void> {
+    return this.delete(`/api/workspaces/${workspaceSlug}/projects/${projectId}/state-groups/${groupId}/`)
       .then((response) => response?.data)
       .catch((error) => {
         throw error?.response?.data;

@@ -113,7 +113,7 @@ export function ArchiveRestoreProjectModal(props: Props) {
           <DialogBody>
             <p className="text-body-xs-regular text-secondary">
               {archive
-                ? "此项目及其工作项、周期、模块和页面将被归档。工作项不再显示在搜索中，项目管理员可恢复项目。"
+                ? "此项目及其工作项、周期、模块和文档将被归档。工作项不再显示在搜索中，项目管理员可恢复项目。"
                 : "恢复后将重新启用项目，并对项目成员可见。确定继续吗？"}
             </p>
           </DialogBody>

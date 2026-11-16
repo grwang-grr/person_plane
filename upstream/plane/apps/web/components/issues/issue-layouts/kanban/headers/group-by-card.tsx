@@ -14,10 +14,13 @@ import type { TIssue, ISearchIssueResponse, TIssueKanbanFilters, TIssueGroupByOp
 import { useTranslation } from "@plane/i18n";
 import { cn } from "@plane/utils";
 // ui
+import { Dialog, DialogContent, DialogTitle } from "@makeplane/propel/components/dialog";
 import { IconButton } from "@makeplane/propel/components/icon-button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@makeplane/propel/components/menu";
 // components
 import { ExistingIssuesListModal } from "@/components/core/modals/existing-issues-list-modal";
+import { StateQuickActions, StateUpdate } from "@/components/project-states";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import { CreateUpdateIssueModal } from "@/components/issues/issue-modal/modal";
 // constants
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
@@ -41,6 +44,7 @@ interface IHeaderGroupByCard {
 export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHeaderGroupByCard) {
   const {
     sub_group_by,
+    group_by,
     column_id,
     icon,
     title,
@@ -58,10 +62,19 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
   // states
   const [isOpen, setIsOpen] = React.useState(false);
   const [openExistingIssueListModal, setOpenExistingIssueListModal] = React.useState(false);
+  const [isEditStateOpen, setIsEditStateOpen] = React.useState(false);
   // hooks
   const storeType = useIssueStoreType();
   // router
   const { workspaceSlug, projectId, moduleId, cycleId } = useParams();
+  // store
+  const { getStateById, projectStates, deleteState, moveStatePosition, markStateAsDefault, updateState } =
+    useProjectState();
+
+  // 看板按状态分组时，列头直接提供与项目设置页相同的状态操作（编辑/设为默认/删除）。
+  const isStateColumn = group_by === "state";
+  const columnState = isStateColumn ? getStateById(column_id) : undefined;
+  const totalProjectStates = projectStates?.length ?? 0;
 
   const renderExistingIssueModal = moduleId || cycleId;
   const ExistingIssuesListModalPayload = moduleId ? { module: moduleId.toString() } : { cycle: true };
@@ -119,6 +132,21 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
         />
       )}
 
+      {columnState && (
+        <Dialog open={isEditStateOpen} onOpenChange={setIsEditStateOpen}>
+          <DialogContent size="sm">
+            <DialogTitle>编辑状态</DialogTitle>
+            <StateUpdate
+              state={columnState}
+              handleClose={() => setIsEditStateOpen(false)}
+              updateStateCallback={(stateId, data) =>
+                updateState(workspaceSlug?.toString(), projectId?.toString(), stateId, data)
+              }
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
       {renderExistingIssueModal && (
         <ExistingIssuesListModal
           workspaceSlug={workspaceSlug?.toString()}
@@ -149,6 +177,18 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
           icon={<ArrowCollapseOutline className="size-3.5" />}
           onClick={() => handleCollapsedGroups("group_by", column_id)}
         />
+
+        {columnState && (
+          <StateQuickActions
+            totalStates={totalProjectStates}
+            state={columnState}
+            onEdit={() => setIsEditStateOpen(true)}
+            stateOperationsCallbacks={{
+              markStateAsDefault: (stateId: string) => markStateAsDefault(workspaceSlug?.toString(), projectId?.toString(), stateId),
+              deleteState: (stateId: string) => deleteState(workspaceSlug?.toString(), projectId?.toString(), stateId),
+            }}
+          />
+        )}
 
         {!disableIssueCreation &&
           (renderExistingIssueModal ? (

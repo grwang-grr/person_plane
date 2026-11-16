@@ -5,7 +5,7 @@
 from django.urls import path
 
 
-from plane.app.views import StateViewSet, IntakeStateEndpoint
+from plane.app.views import StateViewSet, IntakeStateEndpoint, StateGroupViewSet
 
 
 urlpatterns = [
@@ -28,5 +28,15 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/states/<uuid:pk>/mark-default/",
         StateViewSet.as_view({"post": "mark_as_default"}),
         name="project-state",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/state-groups/",
+        StateGroupViewSet.as_view({"get": "list", "post": "create"}),
+        name="project-state-groups",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/state-groups/<uuid:pk>/",
+        StateGroupViewSet.as_view({"patch": "partial_update", "delete": "destroy"}),
+        name="project-state-group",
     ),
 ]

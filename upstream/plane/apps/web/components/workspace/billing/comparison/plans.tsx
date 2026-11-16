@@ -581,8 +581,8 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
       //   },
       // },
       {
-        title: "高级页面分析",
-        description: "查看页面访问、分享和评论等信息。",
+        title: "高级文档分析",
+        description: "查看文档访问、分享和评论等信息。",
         comingSoon: true,
         cloud: {
           free: false,
@@ -805,7 +805,7 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
     title: "知识管理",
     features: [
       {
-        title: "页面",
+        title: "文档",
         description: "构建可访问和共享的知识库。",
         cloud: {
           free: true,
@@ -817,7 +817,7 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
       },
       {
         title: "Real-time Collab",
-        description: "与项目、团队或工作空间成员共同编辑页面。",
+        description: "与项目、团队或工作空间成员共同编辑文档。",
         cloud: {
           free: false,
           one: true,
@@ -839,7 +839,7 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
       },
       {
         title: "Link-to-work items",
-        description: "在工作项详情中关联页面。",
+        description: "在工作项详情中关联文档。",
         cloud: {
           free: false,
           one: true,
@@ -851,7 +851,7 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
       {
         title: "发布",
         description:
-          "发布页面供外部用户访问和评论。",
+          "发布文档供外部用户访问和评论。",
         cloud: {
           free: false,
           one: true,
@@ -873,7 +873,7 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
       },
       {
         title: "导出",
-        description: "将页面导出为便携文档或兼容文字处理软件的文档。",
+        description: "将文档导出为便携文档或兼容文字处理软件的文档。",
         cloud: {
           free: false,
           one: false,
@@ -884,7 +884,7 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
       },
       {
         title: "模板",
-        description: "将页面用作项目、团队或工作空间模板。",
+        description: "将文档用作项目、团队或工作空间模板。",
         cloud: {
           free: false,
           one: false,
@@ -895,7 +895,7 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
       },
       {
         title: "版本",
-        description: "查看并恢复页面的历史版本。",
+        description: "查看并恢复文档的历史版本。",
         cloud: {
           free: false,
           one: false,
@@ -907,7 +907,7 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
       {
         title: "数据库与公式",
         description:
-          "在页面中添加数据库和公式，同时保留文字和图片等内容。",
+          "在文档中添加数据库和公式，同时保留文字和图片等内容。",
         comingSoon: true,
         cloud: {
           free: false,
@@ -918,8 +918,8 @@ export const PLANS_COMPARISON_LIST: TPlansComparisonDetails[] = [
         },
       },
       {
-        title: "嵌套页面",
-        description: "使用嵌套页面分层组织内容。",
+        title: "嵌套文档",
+        description: "使用嵌套文档分层组织内容。",
         comingSoon: true,
         cloud: {
           free: false,

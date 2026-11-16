@@ -170,8 +170,8 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
                     handleLabelDelete={(labelToDelete) => setSelectDeleteLabel(labelToDelete)}
                     isChild={false}
                     isLastChild={index === searchedLabels.length - 1}
-                    // reordering a filtered list has no stable position to drop into
-                    onDrop={() => {}}
+                    // 拖拽目标仍以真实标签 ID 计算，筛选后的展示顺序不影响落点
+                    onDrop={onDrop}
                     isEditable={isEditable}
                     labelOperationsCallbacks={labelOperationsCallbacks}
                   />

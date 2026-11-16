@@ -72,8 +72,8 @@ const TOUR_STEPS: {
   },
   {
     key: "pages",
-    title: "使用页面记录文档",
-    description: "使用页面快速记录工作内容和想法。",
+    title: "使用文档记录文档",
+    description: "使用文档快速记录工作内容和想法。",
     image: PagesTour,
     prevStep: "views",
   },

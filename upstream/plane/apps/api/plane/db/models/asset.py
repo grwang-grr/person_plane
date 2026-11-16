@@ -39,12 +39,15 @@ class FileAsset(BaseModel):
         ISSUE_DESCRIPTION = "ISSUE_DESCRIPTION"
         COMMENT_DESCRIPTION = "COMMENT_DESCRIPTION"
         PAGE_DESCRIPTION = "PAGE_DESCRIPTION"
+        PROJECT_DESCRIPTION = "PROJECT_DESCRIPTION"
         USER_COVER = "USER_COVER"
         USER_AVATAR = "USER_AVATAR"
         WORKSPACE_LOGO = "WORKSPACE_LOGO"
         PROJECT_COVER = "PROJECT_COVER"
         DRAFT_ISSUE_ATTACHMENT = "DRAFT_ISSUE_ATTACHMENT"
         DRAFT_ISSUE_DESCRIPTION = "DRAFT_ISSUE_DESCRIPTION"
+        # 日记正文图片（无额外外键，靠 entity_identifier 关联日记）。
+        DIARY_DESCRIPTION = "DIARY_DESCRIPTION"
 
     attributes = models.JSONField(default=dict)
     asset = models.FileField(upload_to=get_upload_path, max_length=800)
@@ -97,6 +100,7 @@ class FileAsset(BaseModel):
             self.EntityTypeContext.ISSUE_DESCRIPTION,
             self.EntityTypeContext.COMMENT_DESCRIPTION,
             self.EntityTypeContext.PAGE_DESCRIPTION,
+            self.EntityTypeContext.PROJECT_DESCRIPTION,
             self.EntityTypeContext.DRAFT_ISSUE_DESCRIPTION,
         ]:
             return f"/api/assets/v2/workspaces/{self.workspace.slug}/projects/{self.project_id}/{self.id}/"

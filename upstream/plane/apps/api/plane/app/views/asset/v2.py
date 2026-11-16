@@ -67,6 +67,25 @@ def can_modify_asset(user, asset):
     return role in (ROLE.ADMIN.value, ROLE.MEMBER.value)
 
 
+def get_asset_view_url(request, asset) -> str:
+    """Build a URL that shows safe image types inline and downloads every other file.
+
+    The editor stores image assets as ``<image-component src="assetId">`` and resolves
+    them through the asset view endpoint. Serving that endpoint as an attachment with
+    ``application/octet-stream`` makes the browser refuse to paint the image, so the
+    view endpoints must request an inline disposition with the stored MIME type.
+    """
+    storage = S3Storage(request=request)
+    content_type = asset.attributes.get("type")
+    can_inline = content_type in settings.INLINE_SAFE_MIME_TYPES
+    return storage.generate_presigned_url(
+        object_name=asset.asset.name,
+        disposition="inline" if can_inline else "attachment",
+        filename=asset.attributes.get("name"),
+        content_type=content_type if can_inline else None,
+    )
+
+
 class UserAssetsV2Endpoint(BaseAPIView):
     """This endpoint is used to upload user profile images."""
 
@@ -269,6 +288,9 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
         # Page Description
         if entity_type == FileAsset.EntityTypeContext.PAGE_DESCRIPTION:
             return {"page_id": entity_id}
+
+        if entity_type == FileAsset.EntityTypeContext.PROJECT_DESCRIPTION:
+            return {"project_id": entity_id}
 
         # Comment Description
         if entity_type == FileAsset.EntityTypeContext.COMMENT_DESCRIPTION:
@@ -502,16 +524,7 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Get the presigned URL
-        storage = S3Storage(request=request)
-        # Generate a presigned URL to share an S3 object
-        signed_url = storage.generate_presigned_url(
-            object_name=asset.asset.name,
-            disposition="attachment",
-            filename=asset.attributes.get("name"),
-        )
-        # Redirect to the signed URL
-        return HttpResponseRedirect(signed_url)
+        return HttpResponseRedirect(get_asset_view_url(request, asset))
 
 
 class StaticFileAssetEndpoint(BaseAPIView):
@@ -598,6 +611,9 @@ class ProjectAssetEndpoint(BaseAPIView):
         if entity_type == FileAsset.EntityTypeContext.PAGE_DESCRIPTION:
             return {"page_id": entity_id}
 
+        if entity_type == FileAsset.EntityTypeContext.PROJECT_DESCRIPTION:
+            return {"project_id": entity_id}
+
         if entity_type == FileAsset.EntityTypeContext.COMMENT_DESCRIPTION:
             return {"comment_id": entity_id}
 
@@ -646,6 +662,12 @@ class ProjectAssetEndpoint(BaseAPIView):
         # asset key
         asset_key = f"{workspace.id}/{uuid.uuid4().hex}-{name}"
 
+        # Build entity links first. Some entity types (PROJECT_DESCRIPTION,
+        # PROJECT_COVER) resolve to ``project_id``, which is already supplied from
+        # the URL; passing it twice raises TypeError. The URL scope is authoritative.
+        entity_fields = self.get_entity_id_field(entity_type, entity_identifier)
+        entity_fields.pop("project_id", None)
+
         # Create a File Asset
         asset = FileAsset.objects.create(
             attributes={"name": name, "type": type, "size": size_limit},
@@ -655,7 +677,7 @@ class ProjectAssetEndpoint(BaseAPIView):
             created_by=request.user,
             entity_type=entity_type,
             project_id=project_id,
-            **self.get_entity_id_field(entity_type, entity_identifier),
+            **entity_fields,
         )
 
         # Get the presigned URL
@@ -721,16 +743,7 @@ class ProjectAssetEndpoint(BaseAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Get the presigned URL
-        storage = S3Storage(request=request)
-        # Generate a presigned URL to share an S3 object
-        signed_url = storage.generate_presigned_url(
-            object_name=asset.asset.name,
-            disposition="attachment",
-            filename=asset.attributes.get("name"),
-        )
-        # Redirect to the signed URL
-        return HttpResponseRedirect(signed_url)
+        return HttpResponseRedirect(get_asset_view_url(request, asset))
 
 
 class ProjectBulkAssetEndpoint(BaseAPIView):
@@ -801,6 +814,9 @@ class ProjectBulkAssetEndpoint(BaseAPIView):
         if asset.entity_type == FileAsset.EntityTypeContext.PAGE_DESCRIPTION:
             assets.update(page_id=entity_id)
 
+        if asset.entity_type == FileAsset.EntityTypeContext.PROJECT_DESCRIPTION:
+            assets.update(project_id=entity_id)
+
         if asset.entity_type == FileAsset.EntityTypeContext.DRAFT_ISSUE_DESCRIPTION:
             # For some cases, the bulk api is called after the draft issue is deleted
             # creating an integrity error
@@ -852,6 +868,9 @@ class DuplicateAssetEndpoint(BaseAPIView):
         # Page Description
         if entity_type == FileAsset.EntityTypeContext.PAGE_DESCRIPTION:
             return {"page_id": entity_id}
+
+        if entity_type == FileAsset.EntityTypeContext.PROJECT_DESCRIPTION:
+            return {"project_id": entity_id}
 
         # Comment Description
         if entity_type == FileAsset.EntityTypeContext.COMMENT_DESCRIPTION:

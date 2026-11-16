@@ -351,11 +351,11 @@
         "toggle_description": "项目成员将能够创建和编辑视图。"
       },
       "pages": {
-        "title": "页面",
-        "short_title": "页面",
+        "title": "文档",
+        "short_title": "文档",
         "description": "创建和编辑自由格式的内容：笔记、文档、任何内容。",
-        "toggle_title": "启用页面",
-        "toggle_description": "项目成员将能够创建和编辑页面。"
+        "toggle_title": "启用文档",
+        "toggle_description": "项目成员将能够创建和编辑文档。"
       },
       "intake": {
         "intake_responsibility": "接收责任",
@@ -442,7 +442,7 @@
     },
     "templates": {
       "heading": "模板",
-      "description": "使用模板可节省 80% 创建项目、工作项和页面的时间。"
+      "description": "使用模板可节省 80% 创建项目、工作项和文档的时间。"
     },
     "cycles": {
       "auto_schedule": {

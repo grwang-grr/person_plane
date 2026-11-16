@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { observer } from "mobx-react";
-import { STATE_GROUPS } from "@plane/constants";
+import { getStateGroupMeta } from "@plane/constants";
 import { setToast } from "@plane/blocks/toast";
 import type { IState, TStateGroups, TStateOperationsCallbacks } from "@plane/types";
 // components
@@ -64,7 +64,7 @@ export const StateCreate = observer(function StateCreate(props: TStateCreate) {
 
   return (
     <StateForm
-      data={{ name: "", description: "", color: STATE_GROUPS[groupKey].color, group: groupKey }}
+      data={{ name: "", description: "", color: getStateGroupMeta(groupKey).color, group: groupKey }}
       onSubmit={onSubmit}
       onCancel={onCancel}
       buttonDisabled={loader}

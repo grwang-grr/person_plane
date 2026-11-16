@@ -7,14 +7,24 @@
 import { useState } from "react";
 import { observer } from "mobx-react";
 // plane imports
-import type { IState, TStateGroups, TStateOperationsCallbacks } from "@plane/types";
+import { Button } from "@makeplane/propel/components/button";
+import { AddOutline } from "@makeplane/propel/icons";
+import type {
+  IState,
+  TStateGroupDef,
+  TStateGroupOperationsCallbacks,
+  TStateGroups,
+  TStateOperationsCallbacks,
+} from "@plane/types";
 import { cn } from "@plane/utils";
 // components
-import { GroupItem } from "@/components/project-states";
+import { GroupItem, StateGroupCreate } from "@/components/project-states";
 
 type TGroupList = {
   groupedStates: Record<string, IState[]>;
+  stateGroups: TStateGroupDef[];
   stateOperationsCallbacks: TStateOperationsCallbacks;
+  stateGroupOperationsCallbacks: TStateGroupOperationsCallbacks;
   isEditable: boolean;
   groupListClassName?: string;
   groupItemClassName?: string;
@@ -24,20 +34,24 @@ type TGroupList = {
 export const GroupList = observer(function GroupList(props: TGroupList) {
   const {
     groupedStates,
+    stateGroups,
     stateOperationsCallbacks,
+    stateGroupOperationsCallbacks,
     isEditable,
     groupListClassName,
     groupItemClassName,
     stateItemClassName,
   } = props;
   // states
-  const [groupsExpanded, setGroupsExpanded] = useState<Partial<TStateGroups>[]>([
+  const [groupsExpanded, setGroupsExpanded] = useState<Partial<TStateGroups>[]>(() => [
     "backlog",
     "unstarted",
     "started",
+    "acceptance",
     "completed",
     "cancelled",
   ]);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   const handleGroupCollapse = (groupKey: TStateGroups) => {
     setGroupsExpanded((prev) => {
@@ -56,6 +70,13 @@ export const GroupList = observer(function GroupList(props: TGroupList) {
       return [...prev, groupKey];
     });
   };
+
+  // 自定义分组创建后默认展开，便于立即往里建状态。
+  const handleGroupCreated = (group: TStateGroupDef) => {
+    handleExpand(group.key);
+    setIsCreatingGroup(false);
+  };
+
   return (
     <div className={cn("space-y-4", groupListClassName)}>
       {Object.entries(groupedStates).map(([key, value]) => {
@@ -65,10 +86,12 @@ export const GroupList = observer(function GroupList(props: TGroupList) {
           <GroupItem
             key={groupKey}
             groupKey={groupKey}
+            groupDef={stateGroups.find((group) => group.key === groupKey)}
             states={groupStates}
             groupedStates={groupedStates}
             groupsExpanded={groupsExpanded}
             stateOperationsCallbacks={stateOperationsCallbacks}
+            stateGroupOperationsCallbacks={stateGroupOperationsCallbacks}
             isEditable={isEditable}
             handleGroupCollapse={handleGroupCollapse}
             handleExpand={handleExpand}
@@ -77,6 +100,29 @@ export const GroupList = observer(function GroupList(props: TGroupList) {
           />
         );
       })}
+
+      {/* 自定义分组：仅管理员可见，与内置分组共用同一套状态操作。 */}
+      {isEditable && (
+        <div>
+          {isCreatingGroup ? (
+            <StateGroupCreate
+              handleClose={() => setIsCreatingGroup(false)}
+              handleCreated={handleGroupCreated}
+              createGroupCallback={stateGroupOperationsCallbacks.createGroup}
+            />
+          ) : (
+            <Button
+              variant="secondary"
+              size="md"
+              stretch="auto"
+              label="新建状态分组"
+              icon={<AddOutline className="size-3.5" />}
+              iconPosition="start"
+              onClick={() => setIsCreatingGroup(true)}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 });

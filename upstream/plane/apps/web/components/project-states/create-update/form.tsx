@@ -12,6 +12,7 @@ import { Button } from "@makeplane/propel/components/button";
 import { ColorSwatchPicker } from "@plane/blocks/common";
 import { useTranslation } from "@plane/i18n";
 import { StateGroupIcon } from "@plane/blocks/icons";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import type { IState, TStateGroups } from "@plane/types";
 
 type TStateForm = {
@@ -38,6 +39,7 @@ export function StateForm(props: TStateForm) {
   const { data, onSubmit, onCancel, buttonDisabled, buttonTitle } = props;
   // plane hooks
   const { t } = useTranslation();
+  const { projectStateGroups } = useProjectState();
   // states
   const [formData, setFromData] = useState<Partial<IState> | undefined>(undefined);
   const [errors, setErrors] = useState<Partial<Record<keyof IState, string>> | undefined>(undefined);
@@ -83,7 +85,7 @@ export function StateForm(props: TStateForm) {
                     className="flex items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-strong"
                     aria-label={t("aria_labels.color_picker.open")}
                   >
-                    <PopoverButton color={formData?.color} group={data?.group} />
+                    <PopoverButton color={formData?.color} group={formData?.group} />
                   </button>
                 }
               />
@@ -125,6 +127,30 @@ export function StateForm(props: TStateForm) {
           onChange={(e) => handleFormData("description", e.target.value)}
           error={errors?.description || undefined}
         />
+
+        {/* group — 状态属于哪个分组；分组可自定义（见项目设置里的状态分组） */}
+        <div>
+          <label htmlFor="state-group" className="mb-1 block text-body-xs-medium text-secondary">
+            分组
+          </label>
+          <select
+            id="state-group"
+            className="w-full rounded-sm border border-subtle bg-surface-1 px-3 py-2 text-body-sm-regular text-primary"
+            value={formData?.group ?? data?.group ?? "backlog"}
+            onChange={(e) => handleFormData("group", e.target.value as TStateGroups)}
+          >
+            {(projectStateGroups.length > 0 ? projectStateGroups.map((g) => ({ key: g.key, name: g.name })) : []).map(
+              (g) => (
+                <option key={g.key} value={g.key}>
+                  {g.name}
+                </option>
+              )
+            )}
+            {!projectStateGroups.some((g) => g.key === (formData?.group ?? data?.group ?? "backlog")) && (
+              <option value={formData?.group ?? data?.group ?? "backlog"}>{formData?.group ?? data?.group ?? "backlog"}</option>
+            )}
+          </select>
+        </div>
       </div>
       <div className="flex items-center justify-end gap-3 border-t border-subtle-1 px-4 py-3">
         <Button

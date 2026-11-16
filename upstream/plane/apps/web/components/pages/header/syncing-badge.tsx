@@ -22,7 +22,7 @@ const BADGE_CONTENT = {
   error: {
     label: "连接已断开",
     tooltipLabel:
-      "Connection lost. We're having trouble connecting to the websocket server. Your changes will be synced and saved every 10 seconds.",
+      "Connection lost. Your changes are saved through the local backup every 30 seconds.",
   },
 };
 

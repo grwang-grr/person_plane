@@ -6,12 +6,14 @@
 
 import * as React from "react";
 
+import { AcceptanceGroupIcon } from "./acceptance-group-icon";
 import { BacklogGroupIcon } from "./backlog-group-icon";
 import { CancelledGroupIcon } from "./cancelled-group-icon";
 import { CompletedGroupIcon } from "./completed-group-icon";
 import type { StateGroup, StateIconSize } from "./helper";
-import { getStateIconSize, STATE_GROUP_COLORS } from "./helper";
+import { getStateGroupColor, getStateIconSize } from "./helper";
 import { StartedGroupIcon } from "./started-group-icon";
+import type { UnstartedGroupIconProps } from "./unstarted-group-icon";
 import { UnstartedGroupIcon } from "./unstarted-group-icon";
 
 export type StateGroupIconProps = {
@@ -25,7 +27,8 @@ export type StateGroupIconProps = {
 /** @deprecated Use StateGroupIconProps instead. */
 export type IStateGroupIcon = StateGroupIconProps;
 
-const iconComponents = {
+const iconComponents: Record<string, React.ComponentType<UnstartedGroupIconProps>> = {
+  acceptance: AcceptanceGroupIcon,
   backlog: BacklogGroupIcon,
   cancelled: CancelledGroupIcon,
   completed: CompletedGroupIcon,
@@ -34,14 +37,16 @@ const iconComponents = {
 };
 
 export function StateGroupIcon({ className = "", color, percentage, stateGroup, size = "sm" }: StateGroupIconProps) {
-  const StateIconComponent = iconComponents[stateGroup] || UnstartedGroupIcon;
+  // User-defined groups fall back to the plain ring; the group colour is what
+  // tells them apart, so an unknown key must never render undefined.
+  const StateIconComponent = iconComponents[stateGroup] ?? UnstartedGroupIcon;
   const iconSize = getStateIconSize(size);
 
   return (
     <StateIconComponent
       height={iconSize}
       width={iconSize}
-      color={color ?? STATE_GROUP_COLORS[stateGroup]}
+      color={color ?? getStateGroupColor(stateGroup)}
       className={`shrink-0 ${className}`}
       percentage={percentage}
     />

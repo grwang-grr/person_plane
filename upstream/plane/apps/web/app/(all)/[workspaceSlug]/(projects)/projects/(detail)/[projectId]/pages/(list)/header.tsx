@@ -56,7 +56,7 @@ export const PagesListHeader = observer(function PagesListHeader() {
         setToast({
           type: "error",
           title: "错误！",
-          message: err?.data?.error || "无法创建页面。请重试。",
+          message: err?.data?.error || "无法创建文档。请重试。",
         });
       })
       .finally(() => setIsCreatingPage(false));
@@ -74,7 +74,7 @@ export const PagesListHeader = observer(function PagesListHeader() {
           <Breadcrumbs.Item
             component={
               <BreadcrumbLink
-                label="页面"
+                label="文档"
                 href={`/${workspaceSlug}/projects/${currentProjectDetails?.id}/pages/`}
                 icon={<PagesOutline className="h-4 w-4 text-tertiary" />}
                 isLast
@@ -90,7 +90,7 @@ export const PagesListHeader = observer(function PagesListHeader() {
             variant="primary"
             size="md"
             stretch="auto"
-            label={isCreatingPage ? "正在新建" : "新建页面"}
+            label={isCreatingPage ? "正在新建" : "新建文档"}
             onClick={handleCreatePage}
             loading={isCreatingPage}
           />

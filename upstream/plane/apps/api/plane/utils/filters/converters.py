@@ -41,7 +41,7 @@ class LegacyToRichFiltersConverter:
 
     # Default valid choices for choice fields
     DEFAULT_VALID_CHOICES = {
-        "state_group": ["backlog", "unstarted", "started", "completed", "cancelled"],
+        "state_group": ["backlog", "unstarted", "started", "acceptance", "completed", "cancelled", "triage"],
         "priority": ["urgent", "high", "medium", "low", "none"],
     }
 
@@ -163,9 +163,18 @@ class LegacyToRichFiltersConverter:
             return False
 
     def _validate_choice(self, field_name: str, value: str) -> bool:
-        """Validate if a value is valid for a choice field"""
+        """Validate if a value is valid for a choice field.
+
+        `state_group` is special: groups are user-defined per project (see
+        StateGroupDef), so anything outside the built-in set is accepted as long
+        as it is shaped like a group key instead of being rejected outright.
+        """
         if field_name not in self.VALID_CHOICES:
             return True  # No validation needed for this field
+        if field_name == "state_group":
+            return value in self.VALID_CHOICES[field_name] or bool(
+                re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,31}", str(value))
+            )
         return value in self.VALID_CHOICES[field_name]
 
     def _validate_date(self, value: Union[str, datetime]) -> bool:

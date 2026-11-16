@@ -280,6 +280,16 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
       })
       .catch((error) => {
         console.error(error);
+        setToast({
+          type: "error",
+          title: t("error"),
+          message:
+            (error && typeof error === "object" && "error" in error && typeof error.error === "string"
+              ? error.error
+              : error instanceof Error
+                ? error.message
+                : "") || t("something_went_wrong"),
+        });
       });
   };
 
@@ -495,10 +505,11 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
                   variant={moveToIssue ? "secondary" : "primary"}
                   size="md"
                   stretch="auto"
-                  type="submit"
+                  type="button"
                   ref={submitBtnRef}
                   loading={isSubmitting}
                   disabled={isDisabled}
+                  onClick={() => formRef.current?.requestSubmit()}
                   label={isSubmitting ? primaryButtonText.loading : primaryButtonText.default}
                 />
               </div>

@@ -65,7 +65,7 @@ export const usePageOperations = (
         setToast({
           type: "success",
           title: "链接已复制！",
-          message: "页面链接已复制到剪贴板。",
+          message: "文档链接已复制到剪贴板。",
         });
       },
       duplicate: async () => {
@@ -74,17 +74,16 @@ export const usePageOperations = (
           setToast({
             type: "success",
             title: "成功！",
-            message: "页面已复制。",
+            message: "文档已复制。",
           });
         } catch (_error) {
           setToast({
             type: "error",
             title: "错误！",
-            message: "无法复制页面，请稍后重试。",
+            message: "无法复制文档，请稍后重试。",
           });
         }
       },
-      move: async () => {},
       openInNewTab: () => window.open(pageLink, "_blank"),
       toggleAccess: async () => {
         const changedPageType = access === EPageAccess.PUBLIC ? "private" : "public";
@@ -95,13 +94,13 @@ export const usePageOperations = (
           setToast({
             type: "success",
             title: "成功！",
-            message: `页面已设为${changedPageType}，并移至${changedPageType}分区。`,
+            message: `文档已设为${changedPageType}，并移至${changedPageType}分区。`,
           });
         } catch (_error) {
           setToast({
             type: "error",
             title: "错误！",
-            message: `无法将页面设为${changedPageType}，请重试。`,
+            message: `无法将文档设为${changedPageType}，请重试。`,
           });
         }
       },
@@ -112,13 +111,13 @@ export const usePageOperations = (
             setToast({
               type: "success",
               title: "成功！",
-              message: "页面已恢复。",
+              message: "文档已恢复。",
             });
           } catch (_error) {
             setToast({
               type: "error",
               title: "错误！",
-              message: "无法恢复页面，请稍后重试。",
+              message: "无法恢复文档，请稍后重试。",
             });
           }
         } else {
@@ -127,13 +126,13 @@ export const usePageOperations = (
             setToast({
               type: "success",
               title: "成功！",
-              message: "页面已归档。",
+              message: "文档已归档。",
             });
           } catch (_error) {
             setToast({
               type: "error",
               title: "错误！",
-              message: "无法归档页面，请稍后重试。",
+              message: "无法归档文档，请稍后重试。",
             });
           }
         }
@@ -145,13 +144,13 @@ export const usePageOperations = (
             setToast({
               type: "success",
               title: "成功！",
-              message: "页面已取消收藏。",
+              message: "文档已取消收藏。",
             });
           } catch (_error) {
             setToast({
               type: "error",
               title: "错误！",
-              message: "无法取消收藏页面，请稍后重试。",
+              message: "无法取消收藏文档，请稍后重试。",
             });
           }
         } else {
@@ -161,13 +160,13 @@ export const usePageOperations = (
             setToast({
               type: "success",
               title: "成功！",
-              message: "页面已收藏。",
+              message: "文档已收藏。",
             });
           } catch (_error) {
             setToast({
               type: "error",
               title: "错误！",
-              message: "无法收藏页面，请稍后重试。",
+              message: "无法收藏文档，请稍后重试。",
             });
           }
         }
@@ -179,13 +178,13 @@ export const usePageOperations = (
             setToast({
               type: "success",
               title: "成功！",
-              message: "页面已解锁。",
+              message: "文档已解锁。",
             });
           } catch (_error) {
             setToast({
               type: "error",
               title: "错误！",
-              message: "无法解锁页面，请稍后重试。",
+              message: "无法解锁文档，请稍后重试。",
             });
           }
         } else {
@@ -194,13 +193,13 @@ export const usePageOperations = (
             setToast({
               type: "success",
               title: "成功！",
-              message: "页面已锁定。",
+              message: "文档已锁定。",
             });
           } catch (_error) {
             setToast({
               type: "error",
               title: "错误！",
-              message: "无法锁定页面，请稍后重试。",
+              message: "无法锁定文档，请稍后重试。",
             });
           }
         }

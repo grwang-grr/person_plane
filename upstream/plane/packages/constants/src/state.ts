@@ -11,14 +11,18 @@ export type TDraggableData = {
   id: string;
 };
 
-export const STATE_GROUPS: {
-  [key in TStateGroups]: {
-    key: TStateGroups;
-    label: string;
-    defaultStateName: string;
-    color: string;
-  };
-} = {
+export type TStateGroupMeta = {
+  key: TStateGroups;
+  label: string;
+  defaultStateName: string;
+  color: string;
+};
+
+/**
+ * The buckets every project starts with. Anything a user adds afterwards is
+ * still a valid group key, so look values up through `getStateGroupMeta`.
+ */
+export const STATE_GROUPS: Record<string, TStateGroupMeta> = {
   backlog: {
     key: "backlog",
     label: "待办",
@@ -37,6 +41,12 @@ export const STATE_GROUPS: {
     defaultStateName: "In Progress",
     color: "#f59e0b",
   },
+  acceptance: {
+    key: "acceptance",
+    label: "验收",
+    defaultStateName: "Acceptance",
+    color: "#8b5cf6",
+  },
   completed: {
     key: "completed",
     label: "已完成",
@@ -51,12 +61,25 @@ export const STATE_GROUPS: {
   },
 };
 
+/** Fallback keeps unknown (user-added) groups rendering instead of crashing. */
+export function getStateGroupMeta(key: TStateGroups): TStateGroupMeta {
+  return (
+    STATE_GROUPS[key] ?? {
+      key,
+      label: key,
+      defaultStateName: key,
+      color: "#8b5cf6",
+    }
+  );
+}
+
 export const ARCHIVABLE_STATE_GROUPS = [STATE_GROUPS.completed.key, STATE_GROUPS.cancelled.key];
 export const COMPLETED_STATE_GROUPS = [STATE_GROUPS.completed.key];
 export const PENDING_STATE_GROUPS = [
   STATE_GROUPS.backlog.key,
   STATE_GROUPS.unstarted.key,
   STATE_GROUPS.started.key,
+  STATE_GROUPS.acceptance.key,
   STATE_GROUPS.cancelled.key,
 ];
 

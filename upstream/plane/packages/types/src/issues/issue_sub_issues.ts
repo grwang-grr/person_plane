@@ -6,12 +6,14 @@
 
 import type { TIssue } from "./issue";
 
+// 子工作项按状态分组统计。分组可自定义（见 TStateGroups），因此必须保留字符串索引签名。
 export type TSubIssuesStateDistribution = {
   backlog: string[];
   unstarted: string[];
   started: string[];
   completed: string[];
   cancelled: string[];
+  [key: string]: string[];
 };
 
 export type TIssueSubIssues = {

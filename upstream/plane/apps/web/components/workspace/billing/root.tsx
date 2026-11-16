@@ -53,7 +53,7 @@ export const BillingRoot = observer(function BillingRoot() {
         <div className="mt-6">
           <SettingsBoxedControlItem
             title="社区"
-            description="不限项目、工作项、周期、模块、页面及存储数量"
+            description="不限项目、工作项、周期、模块、文档及存储数量"
           />
         </div>
       </div>

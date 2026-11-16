@@ -2,10 +2,10 @@
   "templates": {
     "settings": {
       "title": "模板",
-      "description": "使用模板可以节省80%创建项目、工作项和页面的时间。",
+      "description": "使用模板可以节省80%创建项目、工作项和文档的时间。",
       "new_project_template": "新建项目模板",
       "new_work_item_template": "新建工作项模板",
-      "new_page_template": "新建页面模板",
+      "new_page_template": "新建文档模板",
       "options": {
         "project": {
           "label": "项目模板"
@@ -14,7 +14,7 @@
           "label": "工作项模板"
         },
         "page": {
-          "label": "页面模板"
+          "label": "文档模板"
         }
       },
       "create_template": {
@@ -98,7 +98,7 @@
         "page": {
           "template": {
             "name": {
-              "placeholder": "为您的页面模板命名。",
+              "placeholder": "为您的文档模板命名。",
               "validation": {
                 "required": "模板名称是必填项",
                 "maxLength": "模板名称应少于255个字符"
@@ -109,14 +109,14 @@
             }
           },
           "name": {
-            "placeholder": "未命名页面",
+            "placeholder": "未命名文档",
             "validation": {
-              "maxLength": "页面名称应少于255个字符"
+              "maxLength": "文档名称应少于255个字符"
             }
           },
           "button": {
-            "create": "创建页面模板",
-            "update": "更新页面模板"
+            "create": "创建文档模板",
+            "update": "更新文档模板"
           }
         },
         "publish": {
@@ -227,7 +227,7 @@
     "empty_state": {
       "upgrade": {
         "title": "模板",
-        "description": "使用Plane中的项目、工作项和页面模板，您无需从头开始创建项目或手动设置工作项属性。",
+        "description": "使用Plane中的项目、工作项和文档模板，您无需从头开始创建项目或手动设置工作项属性。",
         "sub_description": "使用模板可以收回80%的管理时间。"
       },
       "no_templates": {

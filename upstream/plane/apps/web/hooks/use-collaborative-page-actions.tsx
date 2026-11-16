@@ -37,27 +37,27 @@ export const useCollaborativePageActions = (props: Props) => {
     () => ({
       [DocumentCollaborativeEvents.lock.client]: {
         execute: (shouldSync?: boolean, recursive?: boolean) => page.lock({ shouldSync, recursive }),
-        errorMessage: "无法锁定页面，请稍后重试。",
+        errorMessage: "无法锁定文档，请稍后重试。",
       },
       [DocumentCollaborativeEvents.unlock.client]: {
         execute: (shouldSync?: boolean, recursive?: boolean) => page.unlock({ shouldSync, recursive }),
-        errorMessage: "无法解锁页面，请稍后重试。",
+        errorMessage: "无法解锁文档，请稍后重试。",
       },
       [DocumentCollaborativeEvents.archive.client]: {
         execute: (shouldSync?: boolean) => page.archive({ shouldSync }),
-        errorMessage: "无法归档页面，请稍后重试。",
+        errorMessage: "无法归档文档，请稍后重试。",
       },
       [DocumentCollaborativeEvents.unarchive.client]: {
         execute: (shouldSync?: boolean) => page.restore({ shouldSync }),
-        errorMessage: "无法恢复页面，请稍后重试。",
+        errorMessage: "无法恢复文档，请稍后重试。",
       },
       [DocumentCollaborativeEvents["make-public"].client]: {
         execute: (shouldSync?: boolean) => page.makePublic({ shouldSync }),
-        errorMessage: "无法将页面设为公开，请稍后重试。",
+        errorMessage: "无法将文档设为公开，请稍后重试。",
       },
       [DocumentCollaborativeEvents["make-private"].client]: {
         execute: (shouldSync?: boolean) => page.makePrivate({ shouldSync }),
-        errorMessage: "无法将页面设为私有，请稍后重试。",
+        errorMessage: "无法将文档设为私有，请稍后重试。",
       },
     }),
     [page]

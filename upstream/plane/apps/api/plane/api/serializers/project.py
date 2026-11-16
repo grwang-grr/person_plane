@@ -19,6 +19,20 @@ from plane.utils.content_validator import (
 from .base import BaseSerializer
 
 
+def sanitize_project_description(data):
+    """Sanitize the HTML description shared by project create and update."""
+    html = data.get("description_html")
+    if html is None:
+        return data
+
+    is_valid, error_message, sanitized_html = validate_html_content(html if isinstance(html, str) else str(html))
+    if not is_valid:
+        raise serializers.ValidationError({"description_html": error_message or "富文本内容无效"})
+    if sanitized_html is not None:
+        data["description_html"] = sanitized_html
+    return data
+
+
 class ProjectCreateSerializer(BaseSerializer):
     """
     Serializer for creating projects with workspace validation.
@@ -73,6 +87,8 @@ class ProjectCreateSerializer(BaseSerializer):
         fields = [
             "name",
             "description",
+            "description_text",
+            "description_html",
             "project_lead",
             "default_assignee",
             "identifier",
@@ -137,7 +153,7 @@ class ProjectCreateSerializer(BaseSerializer):
             ).exists():
                 raise serializers.ValidationError("默认负责人必须属于此工作空间")
 
-        return data
+        return sanitize_project_description(data)
 
     def create(self, validated_data):
         identifier = validated_data.get("identifier", "").strip().upper()
@@ -268,17 +284,7 @@ class ProjectSerializer(BaseSerializer):
         ):
             raise serializers.ValidationError("默认负责人必须属于此工作空间")
 
-        # Validate description content for security
-        if "description_html" in data and data["description_html"]:
-            if isinstance(data["description_html"], dict):
-                is_valid, error_msg, sanitized_html = validate_html_content(str(data["description_html"]))
-                # Update the data with sanitized HTML if available
-                if sanitized_html is not None:
-                    data["description_html"] = sanitized_html
-            if not is_valid:
-                raise serializers.ValidationError({"error": "富文本内容无效"})
-
-        return data
+        return sanitize_project_description(data)
 
     def create(self, validated_data):
         identifier = validated_data.get("identifier", "").strip().upper()

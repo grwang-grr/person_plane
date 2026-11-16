@@ -11,6 +11,30 @@ from plane.personal.backup import create_backup
 from plane.personal.storage import SALT, asset_path, atomic_write
 
 
+_IMAGE_MIME_ALIASES = {"image/jpg": "image/jpeg", "image/pjpeg": "image/jpeg", "image/x-png": "image/png"}
+_GENERIC_MIME_TYPES = {"", "application/octet-stream", "binary/octet-stream"}
+
+
+def _normalize_mime(value: str | None) -> str:
+    mime = (value or "").strip().lower()
+    return _IMAGE_MIME_ALIASES.get(mime, mime)
+
+
+def _mime_matches(uploaded: str | None, signed: str | None) -> bool:
+    """Compare the browser MIME with the signed, signature-detected type.
+
+    Browsers derive the multipart Content-Type from the file extension while the
+    policy is signed from a byte-signature sniff. Equivalent aliases, and a generic
+    browser hint for otherwise valid images, must not reject the upload.
+    """
+    uploaded_type, signed_type = _normalize_mime(uploaded), _normalize_mime(signed)
+    if uploaded_type == signed_type:
+        return True
+    # The signed type is already checked against the image allow-list by the asset
+    # endpoint; a generic browser hint cannot contradict it.
+    return uploaded_type in _GENERIC_MIME_TYPES and signed_type in settings.INLINE_SAFE_MIME_TYPES
+
+
 @require_GET
 @ensure_csrf_cookie
 def bootstrap(request):
@@ -63,7 +87,7 @@ def upload(request):
         if "size" not in policy or request.POST.get("key") != policy["key"]:
             return JsonResponse({"error": "无效的上传凭证。"}, status=403)
         file = request.FILES.get("file")
-        if not file or file.content_type != policy["type"]:
+        if not file or not _mime_matches(file.content_type, policy.get("type")):
             return JsonResponse({"error": "文件或类型与上传凭证不符。"}, status=400)
         atomic_write(file, policy["key"], max_size=policy["size"])
     except signing.BadSignature:

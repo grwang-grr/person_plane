@@ -58,7 +58,7 @@ const PROJECT_FEATURES_LIST = {
   pages: {
     key: "pages",
     property: "page_view",
-    title: "页面",
+    title: "文档",
     description: "自由记录文字和文档。",
     icon: <PagesOutline className="h-5 w-5 flex-shrink-0 text-tertiary" />,
     isPro: false,

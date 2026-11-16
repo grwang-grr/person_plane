@@ -5,7 +5,7 @@
  */
 
 // plane imports
-import { STATE_GROUPS } from "@plane/constants";
+import { getStateGroupMeta } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { PieChart } from "@plane/blocks/charts/pie-chart";
 import { EmptyStateCompact } from "@plane/blocks/empty-state";
@@ -43,12 +43,12 @@ export function ProfileStateDistribution({ stateDistribution, userProfile }: Pro
                   key: group.state_group,
                   value: group.state_count,
                   name: capitalizeFirstLetter(group.state_group),
-                  color: STATE_GROUPS[group.state_group]?.color,
+                  color: getStateGroupMeta(group.state_group)?.color,
                 })) ?? []
               }
               cells={userProfile.state_distribution.map((group) => ({
                 key: group.state_group,
-                fill: STATE_GROUPS[group.state_group]?.color,
+                fill: getStateGroupMeta(group.state_group)?.color,
               }))}
               showTooltip
               tooltipLabel="Count"
@@ -66,10 +66,10 @@ export function ProfileStateDistribution({ stateDistribution, userProfile }: Pro
                         className="h-2.5 w-2.5 rounded-xs"
                         style={{
                           backgroundColor:
-                            STATE_GROUPS[group.state_group]?.color ?? "var(--background-color-accent-primary)",
+                            getStateGroupMeta(group.state_group)?.color ?? "var(--background-color-accent-primary)",
                         }}
                       />
-                      <div className="whitespace-nowrap">{STATE_GROUPS[group.state_group].label}</div>
+                      <div className="whitespace-nowrap">{getStateGroupMeta(group.state_group).label}</div>
                     </div>
                     <div>{group.state_count}</div>
                   </div>

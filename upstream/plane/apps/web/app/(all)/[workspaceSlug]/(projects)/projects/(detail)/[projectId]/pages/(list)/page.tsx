@@ -49,7 +49,7 @@ function ProjectPagesPage({ params }: Route.ComponentProps) {
   const { allowPermissions } = useUserPermissions();
   // derived values
   const project = getProjectById(projectId);
-  const pageTitle = project?.name ? `${project?.name}－页面` : undefined;
+  const pageTitle = project?.name ? `${project?.name}－文档` : undefined;
   const canPerformEmptyStateActions = allowPermissions([EUserProjectRoles.ADMIN], EUserPermissionsLevel.PROJECT);
   const resolvedPath = resolvedTheme === "light" ? lightPagesAsset : darkPagesAsset;
   const pageType = getPageType(type);

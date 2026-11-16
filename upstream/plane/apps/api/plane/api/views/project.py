@@ -32,6 +32,7 @@ from plane.db.models import (
     ProjectMember,
     State,
     DEFAULT_STATES,
+    seed_state_groups,
     Workspace,
     UserFavorite,
     Label,
@@ -259,6 +260,8 @@ class ProjectListCreateAPIEndpoint(BaseAPIView):
                             member_id=serializer.instance.project_lead_id,
                             role=20,
                         )
+
+                    seed_state_groups(serializer.instance, request.user)
 
                     State.objects.bulk_create(
                         [

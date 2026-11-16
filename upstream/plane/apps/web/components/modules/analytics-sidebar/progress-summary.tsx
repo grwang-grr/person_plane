@@ -14,7 +14,7 @@ import { cn } from "@plane/utils";
 const STATE_GROUP_ORDER: TStateGroups[] = ["completed", "started", "unstarted", "backlog", "cancelled"];
 
 /** Propel state colour tokens; paired with `bg-current` to fill a bar segment or a dot. */
-const STATE_GROUP_COLOR_CLASS: Record<TStateGroups, string> = {
+const STATE_GROUP_COLOR_CLASS: Record<string, string> = {
   backlog: "text-icon-states-backlog",
   unstarted: "text-icon-states-unstarted",
   started: "text-icon-states-started",
@@ -25,7 +25,7 @@ const STATE_GROUP_COLOR_CLASS: Record<TStateGroups, string> = {
 type Props = {
   plotType: TModulePlotType;
   /** Work item counts, or estimate points when `plotType` is "points", per state group. */
-  stateGroupCounts: Record<TStateGroups, number>;
+  stateGroupCounts: Record<string, number>;
   total: number;
   /** Rounded completion with cancelled items left out of the scope. */
   percentage: number;

@@ -6,6 +6,12 @@
 
 import useSWR from "swr";
 import { observer } from "mobx-react";
+import { Button } from "@makeplane/propel/components/button";
+import { useNavigate } from "react-router";
+// types
+import { EIssuesStoreType } from "@plane/types";
+// hooks
+import { useIssues } from "@/hooks/store/use-issues";
 // services
 import { WorkItemStatusService } from "@/services/work-item-status.service";
 import type { TStateStatusCount } from "@/services/work-item-status.service";
@@ -28,7 +34,10 @@ const percentage = (count: number, total: number) => (total > 0 ? Math.round((co
  */
 export const ProjectOverviewStatus = observer(function ProjectOverviewStatus(props: Props) {
   const { workspaceSlug, projectId } = props;
-  const { data, error } = useSWR(
+  // navigation
+  const navigate = useNavigate();
+  const { issuesFilter } = useIssues(EIssuesStoreType.PROJECT);
+  const { data, error, mutate } = useSWR(
     workspaceSlug && projectId ? ["PROJECT_STATUS_SUMMARY", workspaceSlug, projectId] : null,
     () => workItemStatusService.fetchSummary(workspaceSlug, [projectId]),
     { revalidateOnFocus: false }
@@ -45,8 +54,16 @@ export const ProjectOverviewStatus = observer(function ProjectOverviewStatus(pro
       count: state.count,
     }));
   const completedCount = states
-    .filter((state: TStateStatusCount) => state.group === "completed")
+    .filter((state: TStateStatusCount) => state.is_terminal)
     .reduce((sum: number, state: TStateStatusCount) => sum + state.count, 0);
+
+  // Hovering any state shows its share; clicking it opens the work item list pre-filtered to that state.
+  const stateHint = (title: string, count: number) => `${title}：${count} 个工作项（${percentage(count, total)}%）`;
+  const handleSelectState = (stateId: string) => {
+    if (!workspaceSlug || !projectId) return;
+    issuesFilter?.updateFilterExpression(workspaceSlug, projectId, { state_id__exact: stateId });
+    navigate(`/${workspaceSlug}/projects/${projectId}/issues`);
+  };
 
   return (
     <section className="rounded-lg border border-subtle bg-surface-1 p-5" aria-label="项目完成情况">
@@ -56,11 +73,15 @@ export const ProjectOverviewStatus = observer(function ProjectOverviewStatus(pro
           共 {total} 个工作项 · 已完成 {percentage(completedCount, total)}%
         </p>
       </div>
+      <p className="mb-3 text-body-xs-regular text-tertiary">悬停查看数量与占比，点击某个状态可直接查看对应的工作项列表。</p>
 
       {error ? (
-        <p role="alert" className="text-body-sm-regular text-danger-primary">
-          无法读取完成情况，请稍后重试。
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p role="alert" className="text-body-sm-regular text-danger-primary">
+            无法读取完成情况，请稍后重试。
+          </p>
+          <Button variant="secondary" size="sm" stretch="auto" label="重试" onClick={() => void mutate()} />
+        </div>
       ) : !data ? (
         <div className="h-2 w-full animate-pulse rounded-full bg-layer-2" />
       ) : total === 0 ? (
@@ -69,27 +90,38 @@ export const ProjectOverviewStatus = observer(function ProjectOverviewStatus(pro
         <>
           <div className="flex h-2 w-full overflow-hidden rounded-full bg-layer-2" role="img" aria-label="按状态分布的工作项占比">
             {segments.map((segment) => (
-              <div
+              <button
                 key={segment.id}
-                className="h-full"
+                type="button"
+                className="h-full transition-opacity hover:opacity-80"
                 style={{ width: `${(segment.count / total) * 100}%`, backgroundColor: segment.color }}
-                title={`${segment.label} ${segment.count}`}
+                title={stateHint(segment.label, segment.count)}
+                aria-label={stateHint(segment.label, segment.count)}
+                onClick={() => handleSelectState(segment.id)}
               />
             ))}
           </div>
           <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
             {states.map((state: TStateStatusCount) => (
-              <li key={state.id} className="flex items-center gap-2 text-body-xs-regular">
-                <span
-                  className="size-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: state.color }}
-                  aria-hidden="true"
-                />
-                <span className="truncate text-secondary">{state.name}</span>
-                <span className="ml-auto shrink-0 tabular-nums text-primary">{state.count}</span>
-                <span className="w-9 shrink-0 text-right tabular-nums text-tertiary">
-                  {percentage(state.count, total)}%
-                </span>
+              <li key={state.id}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-body-xs-regular transition-colors hover:bg-layer-1-hover"
+                  title={stateHint(state.name, state.count)}
+                  aria-label={stateHint(state.name, state.count)}
+                  onClick={() => handleSelectState(state.id)}
+                >
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: state.color }}
+                    aria-hidden="true"
+                  />
+                  <span className="truncate text-secondary">{state.name}</span>
+                  <span className="ml-auto shrink-0 tabular-nums text-primary">{state.count}</span>
+                  <span className="w-9 shrink-0 text-right tabular-nums text-tertiary">
+                    {percentage(state.count, total)}%
+                  </span>
+                </button>
               </li>
             ))}
           </ul>

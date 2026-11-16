@@ -82,8 +82,15 @@ from .workspace.module import WorkspaceModulesEndpoint
 from .workspace.cycle import WorkspaceCyclesEndpoint
 from .workspace.quick_link import QuickLinkViewSet
 from .workspace.sticky import WorkspaceStickyViewSet
+from .workspace.diary import (
+    DiaryViewSet,
+    DiaryTemplateViewSet,
+    DiaryLinkViewSet,
+    PlanViewSet,
+    PlanOccurrenceViewSet,
+)
 
-from .state.base import StateViewSet, IntakeStateEndpoint
+from .state.base import StateGroupViewSet, StateViewSet, IntakeStateEndpoint
 from .view.base import (
     WorkspaceViewViewSet,
     WorkspaceViewIssuesViewSet,

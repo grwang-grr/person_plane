@@ -240,7 +240,7 @@ export class ProjectPageStore implements IProjectPageStore {
         this.loader = undefined;
         this.error = {
           title: "失败",
-          description: "加载页面列表失败，请稍后重试。",
+          description: "加载文档列表失败，请稍后重试。",
         };
       });
       throw error;
@@ -283,7 +283,7 @@ export class ProjectPageStore implements IProjectPageStore {
         this.loader = undefined;
         this.error = {
           title: "失败",
-          description: "加载页面失败，请稍后重试。",
+          description: "加载文档失败，请稍后重试。",
         };
       });
       throw error;
@@ -316,7 +316,7 @@ export class ProjectPageStore implements IProjectPageStore {
         this.loader = undefined;
         this.error = {
           title: "失败",
-          description: "创建页面失败，请稍后重试。",
+          description: "创建文档失败，请稍后重试。",
         };
       });
       throw error;
@@ -342,7 +342,7 @@ export class ProjectPageStore implements IProjectPageStore {
         this.loader = undefined;
         this.error = {
           title: "失败",
-          description: "删除页面失败，请稍后重试。",
+          description: "删除文档失败，请稍后重试。",
         };
       });
       throw error;

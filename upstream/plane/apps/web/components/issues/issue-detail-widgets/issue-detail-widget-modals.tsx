@@ -89,8 +89,10 @@ export const IssueDetailWidgetModals = observer(function IssueDetailWidgetModals
   };
 
   const handleCreateUpdateModalOnSubmit = async (_issue: TIssue) => {
-    if (_issue.parent_id) {
-      await subIssueOperations.addSubIssue(workspaceSlug, projectId, _issue.parent_id, [_issue.id]);
+    // The create response does not reliably echo `parent_id`; the modal state is the source of truth.
+    const parentIssueId = issueCrudOperationState?.create?.parentIssueId ?? _issue.parent_id;
+    if (parentIssueId) {
+      await subIssueOperations.addSubIssue(workspaceSlug, projectId, parentIssueId, [_issue.id]);
     }
   };
 

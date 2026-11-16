@@ -37,7 +37,7 @@ const sidebarOptions: {
   },
   {
     key: "pages",
-    label: "页面",
+    label: "文档",
     Icon: PagesOutline,
   },
 ];

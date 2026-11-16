@@ -5,7 +5,7 @@
  */
 
 // plane imports
-import { STATE_GROUPS } from "@plane/constants";
+import { getStateGroupMeta } from "@plane/constants";
 // types
 import { useTranslation } from "@plane/i18n";
 import type { IUserStateDistribution } from "@plane/types";
@@ -37,7 +37,7 @@ export function ProfileWorkload({ stateDistribution }: Props) {
                   aria-hidden
                   className="size-2.5 shrink-0 rounded-xs"
                   style={{
-                    backgroundColor: STATE_GROUPS[group.state_group].color,
+                    backgroundColor: getStateGroupMeta(group.state_group).color,
                   }}
                 />
                 <span className="truncate text-body-xs-regular text-placeholder">
@@ -45,7 +45,7 @@ export function ProfileWorkload({ stateDistribution }: Props) {
                     ? "未开始"
                     : group.state_group === "started"
                       ? "正在进行"
-                      : STATE_GROUPS[group.state_group].label}
+                      : getStateGroupMeta(group.state_group).label}
                 </span>
               </div>
               <p className="text-h5-semibold">{group.state_count}</p>

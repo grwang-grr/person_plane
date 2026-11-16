@@ -9,7 +9,12 @@ import { observer } from "mobx-react";
 import useSWR from "swr";
 // components
 import { EUserPermissionsLevel } from "@plane/constants";
-import type { IState, TStateOperationsCallbacks } from "@plane/types";
+import type {
+  IState,
+  TStateGroupDef,
+  TStateGroupOperationsCallbacks,
+  TStateOperationsCallbacks,
+} from "@plane/types";
 import { EUserProjectRoles } from "@plane/types";
 import { ProjectStateLoader, GroupList } from "@/components/project-states";
 // hooks
@@ -26,12 +31,17 @@ export const ProjectStateRoot = observer(function ProjectStateRoot(props: TProje
   // hooks
   const {
     groupedProjectStates,
+    projectStateGroups,
     fetchProjectStates,
+    fetchProjectStateGroups,
     createState,
     moveStatePosition,
     updateState,
     deleteState,
     markStateAsDefault,
+    createStateGroup,
+    updateStateGroup,
+    deleteStateGroup,
   } = useProjectState();
   const { allowPermissions } = useUserPermissions();
   // derived values
@@ -42,10 +52,15 @@ export const ProjectStateRoot = observer(function ProjectStateRoot(props: TProje
     projectId
   );
 
-  // Fetching all project states
+  // Fetching all project states and their grouping buckets
   useSWR(
     workspaceSlug && projectId ? `PROJECT_STATES_${workspaceSlug}_${projectId}` : null,
     workspaceSlug && projectId ? () => fetchProjectStates(workspaceSlug.toString(), projectId.toString()) : null,
+    { revalidateIfStale: false, revalidateOnFocus: false }
+  );
+  useSWR(
+    workspaceSlug && projectId ? `PROJECT_STATE_GROUPS_${workspaceSlug}_${projectId}` : null,
+    workspaceSlug && projectId ? () => fetchProjectStateGroups(workspaceSlug.toString(), projectId.toString()) : null,
     { revalidateIfStale: false, revalidateOnFocus: false }
   );
 
@@ -63,13 +78,26 @@ export const ProjectStateRoot = observer(function ProjectStateRoot(props: TProje
     [workspaceSlug, projectId, createState, moveStatePosition, updateState, deleteState, markStateAsDefault]
   );
 
+  // State group (custom bucket) operations callbacks
+  const stateGroupOperationsCallbacks: TStateGroupOperationsCallbacks = useMemo(
+    () => ({
+      createGroup: async (data: Partial<TStateGroupDef>) => createStateGroup(workspaceSlug, projectId, data),
+      updateGroup: async (groupId: string, data: Partial<TStateGroupDef>) =>
+        updateStateGroup(workspaceSlug, projectId, groupId, data),
+      deleteGroup: async (groupId: string) => deleteStateGroup(workspaceSlug, projectId, groupId),
+    }),
+    [workspaceSlug, projectId, createStateGroup, updateStateGroup, deleteStateGroup]
+  );
+
   // Loader
   if (!groupedProjectStates) return <ProjectStateLoader />;
 
   return (
     <GroupList
       groupedStates={groupedProjectStates}
+      stateGroups={projectStateGroups}
       stateOperationsCallbacks={stateOperationsCallbacks}
+      stateGroupOperationsCallbacks={stateGroupOperationsCallbacks}
       isEditable={isEditable}
     />
   );

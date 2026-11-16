@@ -10,7 +10,7 @@ import { debounce } from "lodash-es";
 const AUTO_SAVE_TIME = 30000;
 
 const useAutoSave = (handleSaveDescription: () => void) => {
-  const intervalIdRef = useRef<any>(null);
+  const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const handleSaveDescriptionRef = useRef(handleSaveDescription);
 
   // Update the ref to always point to the latest handleSaveDescription
@@ -18,7 +18,7 @@ const useAutoSave = (handleSaveDescription: () => void) => {
     handleSaveDescriptionRef.current = handleSaveDescription;
   }, [handleSaveDescription]);
 
-  // Set up the interval to run every 10 seconds
+  // Set up the interval to run every 30 seconds
   useEffect(() => {
     intervalIdRef.current = setInterval(() => {
       try {

@@ -42,25 +42,45 @@ export const ProjectOverviewRoot = observer(function ProjectOverviewRoot(props: 
 
   if (!project) return null;
 
+  const emoji = project.logo_props?.in_use === "emoji" ? project.logo_props.emoji?.value : undefined;
+
   return (
-    <div className="h-full w-full overflow-y-auto bg-surface-1 px-page-x py-6">
-      <div className="mx-auto w-full max-w-4xl space-y-6">
-        <header>
-          <h1 className="text-h4-semibold text-primary">{project.name}</h1>
-          <p className="mt-1 text-body-sm-regular text-tertiary">
-            {project.identifier} · 项目概览由项目介绍和当前完成情况组成
-          </p>
-        </header>
+    <div className="h-full w-full overflow-y-auto bg-surface-1">
+      <div className="mx-auto w-full max-w-5xl pb-12">
+        <div className="relative h-40 overflow-hidden rounded-b-2xl bg-gradient-to-br from-accent-primary/25 via-layer-2 to-layer-2">
+          {"cover_image_url" in project && project.cover_image_url ? (
+            <img src={project.cover_image_url} alt="" className="size-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.28),transparent_55%)]" />
+          )}
+        </div>
+        <div className="px-page-x">
+          <div className="-mt-8 flex items-end">
+            <div className="grid size-16 place-items-center rounded-xl border border-subtle bg-surface-1 text-3xl shadow-md">
+              {emoji || "📘"}
+            </div>
+          </div>
+          <header className="mt-4">
+            <h1 className="text-h4-semibold text-primary">{project.name}</h1>
+            <p className="mt-1 text-body-xs-regular text-tertiary">
+              {project.identifier} · 项目概览由项目介绍和当前完成情况组成
+            </p>
+          </header>
 
-        <ProjectOverviewDescription
-          workspaceSlug={workspaceSlug}
-          workspaceId={workspaceId}
-          projectId={projectId}
-          descriptionHtml={project.description_html ?? ""}
-          canEdit={canEdit}
-        />
+          <div className="mt-6 rounded-xl border border-subtle bg-surface-1 p-6">
+            <ProjectOverviewDescription
+              workspaceSlug={workspaceSlug}
+              workspaceId={workspaceId}
+              projectId={projectId}
+              descriptionHtml={project.description_html ?? ""}
+              canEdit={canEdit}
+            />
+          </div>
 
-        <ProjectOverviewStatus workspaceSlug={workspaceSlug} projectId={projectId} />
+          <div className="mt-6 rounded-xl border border-subtle bg-surface-1 p-6">
+            <ProjectOverviewStatus workspaceSlug={workspaceSlug} projectId={projectId} />
+          </div>
+        </div>
       </div>
     </div>
   );

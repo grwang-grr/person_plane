@@ -119,8 +119,8 @@ export const useRealtimePageEvents = ({
               if (page.id === pageId && data?.user_id !== currentUser?.id) {
                 setToast({
                   type: "error",
-                  title: "页面已删除",
-                  message: `页面已删除${getUserDisplayText(data.user_id)}`,
+                  title: "文档已删除",
+                  message: `文档已删除${getUserDisplayText(data.user_id)}`,
                 });
                 router.push(handlers.getRedirectionLink());
               } else if (page.id === pageId) {
@@ -148,7 +148,7 @@ export const useRealtimePageEvents = ({
             // Show toast notification
             setToast({
               type: "error",
-              title: errorType === "fetch" ? "加载页面失败" : "保存页面失败",
+              title: errorType === "fetch" ? "加载文档失败" : "保存文档失败",
               message: errorMessage,
             });
 

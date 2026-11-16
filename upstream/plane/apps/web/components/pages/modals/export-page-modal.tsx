@@ -200,7 +200,7 @@ export function ExportPageModal(props: Props) {
       setToast({
         type: "success",
         title: "成功！",
-        message: "页面已导出。",
+        message: "文档已导出。",
       });
       handleClose();
     } catch (error) {
@@ -208,7 +208,7 @@ export function ExportPageModal(props: Props) {
       setToast({
         type: "error",
         title: "错误！",
-        message: "无法导出页面，请稍后重试。",
+        message: "无法导出文档，请稍后重试。",
       });
     } finally {
       setIsExporting(false);
@@ -226,7 +226,7 @@ export function ExportPageModal(props: Props) {
         <DialogMain>
           <DialogHeader>
             <DialogHeading>
-              <DialogTitle>导出页面</DialogTitle>
+              <DialogTitle>导出文档</DialogTitle>
             </DialogHeading>
           </DialogHeader>
           <DialogBody>
@@ -263,13 +263,13 @@ export function ExportPageModal(props: Props) {
               </div>
               {isPDFSelected && (
                 <div className="flex items-center justify-between gap-2">
-                  <span className="shrink-0 text-body-sm-medium text-primary">页面格式</span>
+                  <span className="shrink-0 text-body-sm-medium text-primary">文档格式</span>
                   <Controller
                     control={control}
                     name="page_format"
                     render={({ field: { onChange, value } }) => (
                       <ExportOptionSelect
-                        label="页面格式"
+                        label="文档格式"
                         options={PAGE_FORMATS}
                         value={value}
                         onChange={(val) => onChange(val as TPageFormats)}

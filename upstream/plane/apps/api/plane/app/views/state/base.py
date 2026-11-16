@@ -9,6 +9,7 @@ from collections import defaultdict
 # Django imports
 from django.db.models import Case, Value, When
 from django.db.utils import IntegrityError
+from django.utils.text import slugify
 
 # Third party imports
 from rest_framework.response import Response
@@ -16,9 +17,9 @@ from rest_framework import status
 
 # Module imports
 from .. import BaseViewSet, BaseAPIView
-from plane.app.serializers import StateSerializer
+from plane.app.serializers import StateGroupDefSerializer, StateSerializer
 from plane.app.permissions import ROLE, allow_permission
-from plane.db.models import State, Issue
+from plane.db.models import Project, State, StateGroup, StateGroupDef, Issue
 from plane.utils.cache import invalidate_cache
 
 
@@ -57,7 +58,7 @@ class StateViewSet(BaseViewSet):
     @allow_permission([ROLE.ADMIN])
     def create(self, request, slug, project_id):
         try:
-            serializer = StateSerializer(data=request.data)
+            serializer = StateSerializer(data=request.data, context={"view": self})
             if serializer.is_valid():
                 serializer.save(project_id=project_id)
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -74,7 +75,7 @@ class StateViewSet(BaseViewSet):
     def partial_update(self, request, slug, project_id, pk):
         try:
             state = self.get_queryset().get(pk=pk)
-            serializer = StateSerializer(state, data=request.data, partial=True)
+            serializer = StateSerializer(state, data=request.data, partial=True, context={"view": self})
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -159,3 +160,92 @@ class IntakeStateEndpoint(BaseAPIView):
             )
 
         return Response(StateSerializer(state).data, status=status.HTTP_200_OK)
+
+
+class StateGroupViewSet(BaseViewSet):
+    serializer_class = StateGroupDefSerializer
+    model = StateGroupDef
+
+    def get_queryset(self):
+        return (
+            StateGroupDef.objects.filter(
+                workspace__slug=self.kwargs.get("slug"),
+                project_id=self.kwargs.get("project_id"),
+                project__project_projectmember__member=self.request.user,
+                deleted_at__isnull=True,
+            )
+            .select_related("project", "workspace")
+            .distinct()
+            .order_by("sequence")
+        )
+
+    @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
+    def list(self, request, slug, project_id):
+        groups = StateGroupDefSerializer(self.get_queryset(), many=True).data
+        return Response(groups, status=status.HTTP_200_OK)
+
+    @invalidate_cache(path="workspaces/:slug/projects/:project_id/state-groups/", url_params=True, user=False)
+    @allow_permission([ROLE.ADMIN])
+    def create(self, request, slug, project_id):
+        try:
+            serializer = StateGroupDefSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            project = Project.objects.get(pk=project_id, workspace__slug=slug)
+            key = (serializer.validated_data.get("key") or "").strip() or slugify(
+                serializer.validated_data.get("name", "")
+            )
+            if not key:
+                return Response({"name": "请填写分组名称"}, status=status.HTTP_400_BAD_REQUEST)
+            if key in set(StateGroup.values):
+                return Response({"key": "该标识为内置分组保留，请使用其他标识。"}, status=status.HTTP_400_BAD_REQUEST)
+
+            group = StateGroupDef.objects.create(
+                project=project,
+                workspace=project.workspace,
+                key=key,
+                name=serializer.validated_data["name"],
+                color=serializer.validated_data.get("color", "#8B5CF6"),
+                sequence=serializer.validated_data.get("sequence", 65535),
+                is_terminal=serializer.validated_data.get("is_terminal", False),
+                created_by=request.user,
+            )
+            return Response(StateGroupDefSerializer(group).data, status=status.HTTP_201_CREATED)
+        except IntegrityError:
+            return Response({"key": "该分组标识已存在。"}, status=status.HTTP_400_BAD_REQUEST)
+
+    @invalidate_cache(path="workspaces/:slug/projects/:project_id/state-groups/", url_params=True, user=False)
+    @allow_permission([ROLE.ADMIN])
+    def partial_update(self, request, slug, project_id, pk):
+        group = StateGroupDef.objects.get(pk=pk, project_id=project_id, workspace__slug=slug)
+
+        if group.is_builtin and "key" in request.data and request.data["key"] != group.key:
+            return Response({"key": "内置分组的标识不可修改。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if group.key in dict(StateGroup.choices) and "key" in request.data and request.data["key"] != group.key:
+            return Response({"key": "该分组的标识不可修改。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = StateGroupDefSerializer(group, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            serializer.save()
+        except IntegrityError:
+            return Response({"key": "该分组标识已存在。"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @invalidate_cache(path="workspaces/:slug/projects/:project_id/state-groups/", url_params=True, user=False)
+    @allow_permission([ROLE.ADMIN])
+    def destroy(self, request, slug, project_id, pk):
+        group = StateGroupDef.objects.get(pk=pk, project_id=project_id, workspace__slug=slug)
+
+        if group.is_builtin:
+            return Response({"error": "内置分组不可删除"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if State.objects.filter(project_id=project_id, group=group.key, deleted_at__isnull=True).exists():
+            return Response({"error": "该分组下还有状态，请先移动到其他分组"}, status=status.HTTP_400_BAD_REQUEST)
+
+        group.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

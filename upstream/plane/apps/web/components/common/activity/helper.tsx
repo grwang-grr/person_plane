@@ -227,7 +227,7 @@ export const messages = (activity: TProjectActivity): { message: string | ReactN
         message: (
           <>
             {newValue ? "创建了" : "移除了"} 该项目页面{" "}
-            <span className="font-medium text-primary">{newValue || oldValue || "未命名页面"}</span>
+            <span className="font-medium text-primary">{newValue || oldValue || "未命名文档"}</span>
           </>
         ),
       };

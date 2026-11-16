@@ -49,7 +49,7 @@
     },
     "block_types": {
       "placeholder": "选择块类型",
-      "summarize_page": "总结页面",
+      "summarize_page": "总结文档",
       "custom_prompt": "自定义提示"
     },
     "actions": {

@@ -9,7 +9,7 @@ import { observer } from "mobx-react";
 import { CircularProgress } from "@makeplane/propel/components/circular-progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@makeplane/propel/components/popover";
 import { SegmentedProgress } from "@plane/blocks/progress";
-import { STATE_GROUPS } from "@plane/constants";
+import { getStateGroupMeta } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import type { TIssueServiceType, TStateGroups } from "@plane/types";
 import { EIssueServiceType } from "@plane/types";
@@ -49,7 +49,7 @@ export const SubIssuesProgressChip = observer(function SubIssuesProgressChip(pro
     id: group,
     name: t(`workspace_projects.state.${group}`),
     value: subIssuesDistribution?.[group]?.length ?? 0,
-    color: STATE_GROUPS[group].color,
+    color: getStateGroupMeta(group).color,
   }));
 
   return (

@@ -190,7 +190,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
       setToast({
         type: "success",
         title: "",
-        message: "已复制公开页面链接。",
+        message: "已复制公开文档链接。",
       })
     );
 

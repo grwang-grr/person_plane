@@ -32,7 +32,7 @@ export const PageEditorHeaderRoot = observer(function PageEditorHeaderRoot(props
   return (
     <>
       <div
-        className={cn("flex items-end text-left", {
+        className={cn("flex items-end gap-3 text-left", {
           "h-[71px]": isLogoSelected,
           "h-[64px]": !isLogoSelected,
         })}
@@ -71,6 +71,12 @@ export const PageEditorHeaderRoot = observer(function PageEditorHeaderRoot(props
             />
           </div>
         )}
+        <span
+          className="pb-1 text-body-xs-regular text-tertiary"
+          title="个人版暂未开放文档模板"
+        >
+          从模板选择
+        </span>
       </div>
       <PageEditorHeaderLogoPicker className="flex w-full flex-shrink-0" page={page} />
     </>

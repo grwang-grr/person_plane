@@ -16,6 +16,7 @@ export type TStateStatusCount = {
   group: TStateGroup;
   project_id: string;
   count: number;
+  is_terminal: boolean;
 };
 
 export type TWorkItemStatusSummary = {

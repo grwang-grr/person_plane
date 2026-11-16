@@ -37,7 +37,9 @@ if (import.meta.env.PROD) {
 // shell, and React 19 leaves DOM it could not adopt in place instead of
 // clearing it.
 void initPromise
-  .catch(() => {})
+  .catch((error: unknown) => {
+    console.error("Failed to initialize i18n:", error);
+  })
   .then(() => {
     startTransition(() => {
       hydrateRoot(

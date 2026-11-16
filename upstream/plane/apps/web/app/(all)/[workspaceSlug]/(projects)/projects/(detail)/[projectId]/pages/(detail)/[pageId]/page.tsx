@@ -96,7 +96,11 @@ function PageDetailsPage({ params }: Route.ComponentProps) {
           return `/${workspaceSlug}/projects/${projectId}/pages`;
         }
       },
-      updateDescription: updateDescription ?? (async () => {}),
+      updateDescription:
+        updateDescription ??
+        (async () => {
+          throw new Error("文档尚未加载完成，无法保存描述。");
+        }),
     }),
     [createPage, fetchEntityCallback, id, updateDescription, workspaceSlug, projectId]
   );
@@ -170,7 +174,7 @@ function PageDetailsPage({ params }: Route.ComponentProps) {
           stretch="auto"
           render={<Link href={`/${workspaceSlug}/projects/${projectId}/pages`} className="mt-5" />}
         >
-          查看其他页面
+          查看其他文档
         </Button>
       </div>
     );

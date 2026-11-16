@@ -247,30 +247,30 @@
       }
     },
     "pages": {
-      "link_pages": "连接页面",
-      "show_wiki_pages": "显示 Wiki 页面",
-      "link_pages_to": "连接页面到",
-      "linked_pages": "连接的页面",
-      "no_description": "此页面为空。在此输入一些内容，并在此处查看此占位符",
+      "link_pages": "连接文档",
+      "show_wiki_pages": "显示 Wiki 文档",
+      "link_pages_to": "连接文档到",
+      "linked_pages": "连接的文档",
+      "no_description": "此文档为空。在此输入一些内容，并在此处查看此占位符",
       "toasts": {
         "link": {
           "success": {
-            "title": "页面已更新",
-            "message": "页面已成功更新"
+            "title": "文档已更新",
+            "message": "文档已成功更新"
           },
           "error": {
-            "title": "页面更新失败",
-            "message": "页面更新失败"
+            "title": "文档更新失败",
+            "message": "文档更新失败"
           }
         },
         "remove": {
           "success": {
-            "title": "页面已删除",
-            "message": "页面已成功删除"
+            "title": "文档已删除",
+            "message": "文档已成功删除"
           },
           "error": {
-            "title": "页面删除失败",
-            "message": "页面删除失败"
+            "title": "文档删除失败",
+            "message": "文档删除失败"
           }
         }
       }

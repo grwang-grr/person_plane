@@ -67,7 +67,7 @@ export const PagesListMainContent = observer(function PagesListMainContent(props
         setToast({
           type: "error",
           title: "错误！",
-          message: err?.data?.error || "无法创建页面。请重试。",
+          message: err?.data?.error || "无法创建文档。请重试。",
         });
       })
       .finally(() => setIsCreatingPage(false));

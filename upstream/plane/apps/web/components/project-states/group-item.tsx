@@ -15,17 +15,26 @@ import { AddOutline, ChevronDownOutline } from "@makeplane/propel/icons";
 import { StateGroupIcon } from "@plane/blocks/icons";
 import { EIconSize } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
-import type { IState, TStateGroups, TStateOperationsCallbacks } from "@plane/types";
+import type {
+  IState,
+  TStateGroupDef,
+  TStateGroupOperationsCallbacks,
+  TStateGroups,
+  TStateOperationsCallbacks,
+} from "@plane/types";
 import { cn } from "@plane/utils";
 // components
-import { StateList, StateCreate } from "@/components/project-states";
+import { StateList, StateCreate, StateGroupEdit, StateGroupQuickActions } from "@/components/project-states";
 
 type TGroupItem = {
   groupKey: TStateGroups;
+  /** 分组定义：自定义分组时存在，用其名称与颜色覆盖默认展示。 */
+  groupDef?: TStateGroupDef;
   groupsExpanded: Partial<TStateGroups>[];
   groupedStates: Record<string, IState[]>;
   states: IState[];
   stateOperationsCallbacks: TStateOperationsCallbacks;
+  stateGroupOperationsCallbacks: TStateGroupOperationsCallbacks;
   isEditable: boolean;
   groupItemClassName?: string;
   stateItemClassName?: string;
@@ -36,11 +45,13 @@ type TGroupItem = {
 export const GroupItem = observer(function GroupItem(props: TGroupItem) {
   const {
     groupKey,
+    groupDef,
     groupedStates,
     states,
     groupsExpanded,
     isEditable,
     stateOperationsCallbacks,
+    stateGroupOperationsCallbacks,
     groupItemClassName,
     stateItemClassName,
     handleExpand,
@@ -52,9 +63,11 @@ export const GroupItem = observer(function GroupItem(props: TGroupItem) {
   const { t } = useTranslation();
   // state
   const [createState, setCreateState] = useState(false);
+  const [isEditingGroup, setIsEditingGroup] = useState(false);
   // derived values
   const currentStateExpanded = groupsExpanded.includes(groupKey);
   const shouldShowEmptyState = states.length === 0 && currentStateExpanded && !createState;
+  const groupLabel = groupDef?.name || String(groupKey);
 
   const isCreateDisabled = !isEditable || createState;
 
@@ -78,25 +91,41 @@ export const GroupItem = observer(function GroupItem(props: TGroupItem) {
         }
         trigger={
           <span className="flex w-full items-center gap-1">
-            <StateGroupIcon stateGroup={groupKey} size={EIconSize.LG} className="shrink-0" />
-            <span className="text-body-sm-medium text-primary capitalize">{groupKey}</span>
+            <StateGroupIcon
+              stateGroup={groupKey}
+              color={groupDef?.color}
+              size={EIconSize.LG}
+              className="shrink-0"
+            />
+            <span className="text-body-sm-medium text-primary">{groupLabel}</span>
+            <span className="text-body-xs-regular text-tertiary">· {states.length}</span>
           </span>
         }
         trailing={
-          <IconButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={t("common.add")}
-            disabled={isCreateDisabled}
-            onClick={() => {
-              if (!createState) {
-                handleExpand(groupKey);
-                setCreateState(true);
-              }
-            }}
-            icon={<Icon icon={AddOutline} />}
-          />
+          <span className="flex items-center gap-0.5">
+            {isEditable && groupDef && (
+              <StateGroupQuickActions
+                group={groupDef}
+                totalStates={states.length}
+                onEdit={() => setIsEditingGroup(true)}
+                stateGroupOperationsCallbacks={stateGroupOperationsCallbacks}
+              />
+            )}
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={t("common.add")}
+              disabled={isCreateDisabled}
+              onClick={() => {
+                if (!createState) {
+                  handleExpand(groupKey);
+                  setCreateState(true);
+                }
+              }}
+              icon={<Icon icon={AddOutline} />}
+            />
+          </span>
         }
       >
         {shouldShowEmptyState && (
@@ -126,6 +155,15 @@ export const GroupItem = observer(function GroupItem(props: TGroupItem) {
             groupKey={groupKey}
             handleClose={() => setCreateState(false)}
             createStateCallback={stateOperationsCallbacks.createState}
+          />
+        </div>
+      )}
+      {isEditable && groupDef && isEditingGroup && (
+        <div className="px-3 pb-3">
+          <StateGroupEdit
+            group={groupDef}
+            handleClose={() => setIsEditingGroup(false)}
+            updateGroupCallback={stateGroupOperationsCallbacks.updateGroup}
           />
         </div>
       )}

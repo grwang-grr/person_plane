@@ -128,7 +128,7 @@ export const ProjectNavigation = observer(function ProjectNavigation(props: TPro
       {
         i18n_key: "sidebar.pages",
         key: "pages",
-        name: "页面",
+        name: "文档",
         href: `/${workspaceSlug}/projects/${projectId}/pages`,
         icon: PagesOutline,
         access: [EUserPermissions.ADMIN, EUserPermissions.MEMBER, EUserPermissions.GUEST],

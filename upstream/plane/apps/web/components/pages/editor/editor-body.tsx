@@ -4,11 +4,16 @@
  * See the LICENSE file for details.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react";
 // plane imports
 import { LIVE_BASE_PATH, LIVE_BASE_URL } from "@plane/constants";
-import { CollaborativeDocumentEditorWithRef } from "@plane/editor";
+import { setToast } from "@plane/blocks/toast";
+import { CollaborativeDocumentEditorWithRef, DocumentEditorWithRef } from "@plane/editor";
+import {
+  convertBinaryDataToBase64String,
+  getBinaryDataFromDocumentEditorHTMLString,
+} from "@plane/editor";
 import type {
   CollaborationState,
   EditorRefApi,
@@ -19,7 +24,12 @@ import type {
   TServerHandler,
 } from "@plane/editor";
 import { useTranslation } from "@plane/i18n";
-import type { TSearchEntityRequestPayload, TSearchResponse, TWebhookConnectionQueryParams } from "@plane/types";
+import type {
+  TDocumentPayload,
+  TSearchEntityRequestPayload,
+  TSearchResponse,
+  TWebhookConnectionQueryParams,
+} from "@plane/types";
 import { ERowVariant, Row } from "@plane/blocks/layout";
 import { cn, generateRandomColor, hslToHex } from "@plane/utils";
 // components
@@ -51,6 +61,7 @@ export type TEditorBodyConfig = {
 export type TEditorBodyHandlers = {
   fetchEntity: (payload: TSearchEntityRequestPayload) => Promise<TSearchResponse>;
   getRedirectionLink: (pageId?: string) => string;
+  updateDescription: (data: TDocumentPayload) => Promise<void>;
 };
 
 type Props = {
@@ -78,9 +89,13 @@ type Props = {
  * render already gets the config instead of switching to it after mount.
  */
 function buildRealtimeConfig(webhookConnectionParams: TWebhookConnectionQueryParams): TRealtimeConfig | undefined {
+  // 没有配置 live 服务时不要退化到当前站点：那会连到不存在的 /live/collaboration，
+  // 重试失败后编辑器会一直显示“连接已断开”。
+  if (!LIVE_BASE_URL?.trim()) return undefined;
+
   // Construct the WebSocket Collaboration URL
   try {
-    const LIVE_SERVER_BASE_URL = LIVE_BASE_URL?.trim() || window.location.origin;
+    const LIVE_SERVER_BASE_URL = LIVE_BASE_URL.trim();
     const WS_LIVE_URL = new URL(LIVE_SERVER_BASE_URL);
     const isSecureEnvironment = window.location.protocol === "https:";
     WS_LIVE_URL.protocol = isSecureEnvironment ? "wss" : "ws";
@@ -204,6 +219,69 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
   );
 
   const realtimeConfig = useMemo(() => buildRealtimeConfig(webhookConnectionParams), [webhookConnectionParams]);
+  const hasCollaborationServer = Boolean(LIVE_BASE_URL?.trim());
+  const localSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [localTitle, setLocalTitle] = useState(page.name ?? "");
+  const [localSaveStatus, setLocalSaveStatus] = useState<"saving" | "saved" | "error">("saved");
+
+  useEffect(() => setLocalTitle(page.name ?? ""), [page.name]);
+
+  const commitLocalTitle = () => {
+    const nextTitle = localTitle.trim();
+    if (nextTitle && nextTitle !== page.name) void page.update({ name: nextTitle });
+  };
+
+  const persistLocalDocument = useCallback(
+    async (json: object, html: string) => {
+      try {
+        setLocalSaveStatus("saving");
+        const binary = getBinaryDataFromDocumentEditorHTMLString(html, page.name ?? "");
+        await handlers.updateDescription({
+          description_binary: convertBinaryDataToBase64String(binary),
+          description_html: html,
+          description_json: json,
+        });
+        setLocalSaveStatus("saved");
+        setSyncingStatus("synced");
+      } catch (error) {
+        setLocalSaveStatus("error");
+        setSyncingStatus("error");
+        setToast({
+          type: "error",
+          title: t("error"),
+          message: error instanceof Error ? error.message : t("something_went_wrong"),
+        });
+      }
+    },
+    [handlers, page.name, setSyncingStatus, t]
+  );
+
+  const handleLocalDocumentChange = useCallback(
+    (json: object, html: string) => {
+      if (localSaveTimerRef.current) clearTimeout(localSaveTimerRef.current);
+      setLocalSaveStatus("saving");
+      localSaveTimerRef.current = setTimeout(() => void persistLocalDocument(json, html), 800);
+    },
+    [persistLocalDocument]
+  );
+
+  useEffect(
+    () => () => {
+      if (localSaveTimerRef.current) clearTimeout(localSaveTimerRef.current);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!hasCollaborationServer) {
+      setSyncingStatus("synced");
+      onCollaborationStateChange?.({
+        stage: { kind: "synced" },
+        isServerSynced: true,
+        isServerDisconnected: false,
+      });
+    }
+  }, [hasCollaborationServer, onCollaborationStateChange, setSyncingStatus]);
 
   const userConfig = useMemo(
     () => ({
@@ -221,7 +299,7 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
     }
   );
 
-  const isPageLoading = pageId === undefined || !realtimeConfig;
+  const isPageLoading = pageId === undefined;
 
   if (isPageLoading) return <PageContentLoader className={blockWidthClassName} />;
 
@@ -259,36 +337,90 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
               <PageEditorHeaderRoot page={page} projectId={projectId} />
             </div>
           </div>
-          <CollaborativeDocumentEditorWithRef
-            editable={isContentEditable}
-            id={pageId}
-            fileHandler={config.fileHandler}
-            handleEditorReady={handleEditorReady}
-            ref={editorForwardRef}
-            titleRef={titleEditorRef}
-            containerClassName="h-full p-0 pb-64"
-            displayConfig={displayConfig}
-            getEditorMetaData={getEditorMetaData}
-            mentionHandler={{
-              searchCallback: async (query) => {
-                const res = await fetchMentions(query);
-                if (!res) throw new Error("加载提及信息失败");
-                return res;
-              },
-              // oxlint-disable-next-line no-shadow
-              renderComponent: (props) => <EditorMentionsRoot {...props} />,
-              getMentionedEntityDetails: (id: string) => ({ display_name: getUserDetails(id)?.display_name ?? "" }),
-            }}
-            updatePageProperties={updatePageProperties}
-            realtimeConfig={realtimeConfig}
-            serverHandler={serverHandler}
-            user={userConfig}
-            disabledExtensions={documentEditorExtensions.disabled}
-            flaggedExtensions={documentEditorExtensions.flagged}
-            onAssetChange={updateAssetsList}
-            extendedEditorProps={extendedEditorProps}
-            isFetchingFallbackBinary={isFetchingFallbackBinary}
-          />
+          {hasCollaborationServer ? (
+            <CollaborativeDocumentEditorWithRef
+              editable={isContentEditable}
+              id={pageId}
+              fileHandler={config.fileHandler}
+              handleEditorReady={handleEditorReady}
+              ref={editorForwardRef}
+              titleRef={titleEditorRef}
+              containerClassName="h-full p-0 pb-64"
+              displayConfig={displayConfig}
+              getEditorMetaData={getEditorMetaData}
+              mentionHandler={{
+                searchCallback: async (query) => {
+                  const res = await fetchMentions(query);
+                  if (!res) throw new Error("加载提及信息失败");
+                  return res;
+                },
+                // oxlint-disable-next-line no-shadow
+                renderComponent: (props) => <EditorMentionsRoot {...props} />,
+                getMentionedEntityDetails: (id: string) => ({ display_name: getUserDetails(id)?.display_name ?? "" }),
+              }}
+              updatePageProperties={updatePageProperties}
+              realtimeConfig={realtimeConfig}
+              serverHandler={serverHandler}
+              user={userConfig}
+              disabledExtensions={documentEditorExtensions.disabled}
+              flaggedExtensions={documentEditorExtensions.flagged}
+              onAssetChange={updateAssetsList}
+              extendedEditorProps={extendedEditorProps}
+              isFetchingFallbackBinary={isFetchingFallbackBinary}
+            />
+          ) : (
+            <>
+              <div className={blockWidthClassName}>
+                <div className="flex items-end justify-between gap-3 py-3">
+                  <input
+                    aria-label="文档标题"
+                    value={localTitle}
+                    readOnly={!isContentEditable}
+                    onChange={(event) => setLocalTitle(event.target.value)}
+                    onBlur={commitLocalTitle}
+                    className="min-w-0 flex-1 bg-transparent text-[2rem] leading-[2.375rem] font-bold tracking-[-2%] text-primary outline-none placeholder:text-tertiary"
+                    placeholder="无标题"
+                  />
+                  <span
+                    className={`shrink-0 text-xs ${
+                      localSaveStatus === "error" ? "text-danger-primary" : "text-tertiary"
+                    }`}
+                    aria-live="polite"
+                  >
+                    {localSaveStatus === "saving" ? "保存中…" : localSaveStatus === "error" ? "保存失败" : "已保存"}
+                  </span>
+                </div>
+              </div>
+              <DocumentEditorWithRef
+              editable={isContentEditable}
+              id={pageId}
+              value={page.description_html ?? "<p></p>"}
+              placeholder="按 '/' 唤出命令…"
+              fileHandler={config.fileHandler}
+              handleEditorReady={handleEditorReady}
+              ref={editorForwardRef}
+              containerClassName="h-full p-0 pb-64"
+              displayConfig={displayConfig}
+              getEditorMetaData={getEditorMetaData}
+              mentionHandler={{
+                searchCallback: async (query) => {
+                  const res = await fetchMentions(query);
+                  if (!res) throw new Error("加载提及信息失败");
+                  return res;
+                },
+                // oxlint-disable-next-line no-shadow
+                renderComponent: (props) => <EditorMentionsRoot {...props} />,
+                getMentionedEntityDetails: (id: string) => ({ display_name: getUserDetails(id)?.display_name ?? "" }),
+              }}
+              user={userConfig}
+              disabledExtensions={documentEditorExtensions.disabled}
+              flaggedExtensions={documentEditorExtensions.flagged}
+              onAssetChange={updateAssetsList}
+              extendedEditorProps={extendedEditorProps}
+              onChange={handleLocalDocumentChange}
+              />
+            </>
+          )}
         </div>
       </div>
     </Row>

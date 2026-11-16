@@ -80,7 +80,7 @@ export function PageForm(props: Props) {
       <DialogMain>
         <DialogHeader>
           <DialogHeading>
-            <DialogTitle>创建页面</DialogTitle>
+            <DialogTitle>创建文档</DialogTitle>
           </DialogHeading>
         </DialogHeader>
         <DialogBody tabIndex={0}>
@@ -173,7 +173,7 @@ export function PageForm(props: Props) {
           size="md"
           stretch="auto"
           type="submit"
-          label={isSubmitting ? "创建中" : "创建页面"}
+          label={isSubmitting ? "创建中" : "创建文档"}
           loading={isSubmitting}
           disabled={isTitleLengthMoreThan255Character}
           tabIndex={getIndex("submit")}

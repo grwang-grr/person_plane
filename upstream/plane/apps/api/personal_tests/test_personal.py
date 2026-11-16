@@ -202,3 +202,89 @@ def test_signed_upload_download_and_path_boundaries(local, settings, tmp_path):
     storage.upload_file(io.BytesIO(b"copy"), "original.txt")
     storage.copy_object("original.txt", "copy.txt")
     assert asset_path("copy.txt").read_bytes() == b"copy"
+
+
+@pytest.mark.django_db
+def test_project_description_image_upload_and_inline_view(local, settings, tmp_path):
+    """Project description assets register once and are viewable inline.
+
+    Regression: the endpoint used to pass ``project_id`` twice for
+    PROJECT_DESCRIPTION (URL plus entity mapping), returning 500, and the view
+    endpoint served images as octet-stream attachments so editors showed blanks.
+    """
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from plane.db.models import FileAsset, ProjectMember
+
+    settings.MEDIA_ROOT = tmp_path / "attachments"
+    user, workspace = local
+    project = Project.objects.create(workspace=workspace, name="图片项目", identifier="IMG")
+    ProjectMember.objects.create(project=project, member=user, role=20)
+    client = Client(enforce_csrf_checks=True)
+    client.get("/api/personal/bootstrap/")
+    token = client.cookies["csrftoken"].value
+    headers = {"HTTP_X_CSRFTOKEN": token}
+
+    url = f"/api/assets/v2/workspaces/personal/projects/{project.id}/"
+    response = client.post(
+        url,
+        json.dumps(
+            {
+                "name": "介绍.png",
+                "type": "image/png",
+                "size": 16,
+                "entity_type": "PROJECT_DESCRIPTION",
+                "entity_identifier": str(project.id),
+            }
+        ),
+        content_type="application/json",
+        **headers,
+    )
+    assert response.status_code == 200, response.content
+    payload = response.json()
+    asset = FileAsset.objects.get(id=payload["asset_id"])
+    assert asset.project_id == project.id
+    assert asset.entity_type == "PROJECT_DESCRIPTION"
+
+    upload = client.post(
+        payload["upload_data"]["url"],
+        {
+            **payload["upload_data"]["fields"],
+            "file": SimpleUploadedFile("介绍.png", b"png-bytes", content_type="image/png"),
+        },
+    )
+    assert upload.status_code == 204
+    assert client.patch(
+        f"{url}{asset.id}/",
+        json.dumps({"attributes": {"name": "介绍.png", "type": "image/png", "size": 9}}),
+        content_type="application/json",
+        **headers,
+    ).status_code == 204
+
+    view = client.get(f"{url}{asset.id}/")
+    assert view.status_code == 302
+    download = client.get(view["Location"])
+    assert download.status_code == 200
+    assert download["Content-Type"] == "image/png"
+    assert download["Content-Disposition"].startswith("inline;")
+    assert b"".join(download.streaming_content) == b"png-bytes"
+
+
+@pytest.mark.django_db
+def test_signed_upload_accepts_image_mime_aliases(local, settings, tmp_path):
+    """Browser MIME aliases must not reject an image signed from a byte signature."""
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path / "attachments"
+    client = Client()
+    storage = LocalStorage()
+    policy = storage.generate_presigned_post("project/照片.jpg", "image/jpeg", 16)
+    response = client.post(
+        policy["url"],
+        {
+            **policy["fields"],
+            "file": SimpleUploadedFile("照片.jpg", b"jpeg-bytes", content_type="image/jpg"),
+        },
+    )
+    assert response.status_code == 204
+    assert asset_path("project/照片.jpg").read_bytes() == b"jpeg-bytes"

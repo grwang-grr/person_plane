@@ -45,7 +45,7 @@ from .project import (
     ProjectMemberRoleSerializer,
     ProjectMemberPreferenceSerializer,
 )
-from .state import StateSerializer, StateLiteSerializer
+from .state import StateGroupDefSerializer, StateSerializer, StateLiteSerializer
 from .view import IssueViewSerializer, ViewIssueListSerializer
 from .cycle import (
     CycleSerializer,
@@ -134,4 +134,12 @@ from .draft import (
     DraftIssueCreateSerializer,
     DraftIssueSerializer,
     DraftIssueDetailSerializer,
+)
+
+from .diary import (
+    DiaryTemplateSerializer,
+    DiarySerializer,
+    DiaryLinkSerializer,
+    PlanSerializer,
+    PlanOccurrenceSerializer,
 )

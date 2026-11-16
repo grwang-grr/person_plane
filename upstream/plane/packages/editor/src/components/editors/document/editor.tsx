@@ -87,6 +87,8 @@ function DocumentEditor(props: IDocumentEditorProps) {
   });
 
   const editorContainerClassName = getEditorClassNames({
+    noBorder: true,
+    borderOnFocus: false,
     containerClassName,
   });
 

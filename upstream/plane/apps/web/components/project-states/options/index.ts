@@ -5,3 +5,4 @@
  */
 
 export * from "./quick-actions";
+export * from "./group-quick-actions";

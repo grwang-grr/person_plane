@@ -8,8 +8,7 @@ import { set, groupBy } from "lodash-es";
 import { action, computed, makeObservable, observable, runInAction } from "mobx";
 import { computedFn } from "mobx-utils";
 // plane imports
-import { STATE_GROUPS } from "@plane/constants";
-import type { IIntakeState, IState } from "@plane/types";
+import type { IIntakeState, IState, TStateGroupDef } from "@plane/types";
 // helpers
 import { sortStates } from "@plane/utils";
 // plane web
@@ -39,6 +38,21 @@ export interface IStateStore {
   fetchProjectStates: (workspaceSlug: string, projectId: string) => Promise<IState[]>;
   fetchProjectIntakeState: (workspaceSlug: string, projectId: string) => Promise<IIntakeState>;
   fetchWorkspaceStates: (workspaceSlug: string) => Promise<IState[]>;
+
+  projectStateGroups: TStateGroupDef[];
+  fetchProjectStateGroups: (workspaceSlug: string, projectId: string) => Promise<TStateGroupDef[]>;
+  createStateGroup: (
+    workspaceSlug: string,
+    projectId: string,
+    data: Partial<TStateGroupDef>
+  ) => Promise<TStateGroupDef>;
+  updateStateGroup: (
+    workspaceSlug: string,
+    projectId: string,
+    groupId: string,
+    data: Partial<TStateGroupDef>
+  ) => Promise<TStateGroupDef>;
+  deleteStateGroup: (workspaceSlug: string, projectId: string, groupId: string) => Promise<void>;
   // crud actions
   createState: (workspaceSlug: string, projectId: string, data: Partial<IState>) => Promise<IState>;
   updateState: (
@@ -62,6 +76,9 @@ export interface IStateStore {
 export class StateStore implements IStateStore {
   stateMap: Record<string, IState> = {};
   intakeStateMap: Record<string, IIntakeState> = {};
+  /** Grouping buckets per project, keyed by their slug. */
+  stateGroupMap: Record<string, TStateGroupDef> = {};
+  fetchedGroupMap: Record<string, boolean> = {};
   //loaders
   fetchedMap: Record<string, boolean> = {};
   fetchedIntakeMap: Record<string, boolean> = {};
@@ -79,13 +96,18 @@ export class StateStore implements IStateStore {
       // computed
       projectStates: computed,
       groupedProjectStates: computed,
+      projectStateGroups: computed,
       // fetch action
       fetchProjectStates: action,
       fetchProjectIntakeState: action,
+      fetchProjectStateGroups: action,
       // CRUD actions
       createState: action,
       updateState: action,
       deleteState: action,
+      createStateGroup: action,
+      updateStateGroup: action,
+      deleteStateGroup: action,
       // state actions
       markStateAsDefault: action,
       moveStatePosition: action,
@@ -123,8 +145,11 @@ export class StateStore implements IStateStore {
     // First group the existing states
     const groupedStates = groupBy(this.projectStates, "group") as Record<string, IState[]>;
 
-    // Ensure all STATE_GROUPS are present
-    const allGroups = Object.keys(STATE_GROUPS).reduce(
+    // Every defined bucket must be present, even the empty ones, plus whatever
+    // legacy groups the states still carry but no longer have a definition for.
+    const orderedKeys = this.projectStateGroups.map((group) => group.key);
+    const leftovers = Object.keys(groupedStates).filter((key) => !orderedKeys.includes(key));
+    const allGroups = [...orderedKeys, ...leftovers].reduce(
       (acc, group) => ({
         // oxlint-disable-next-line oxc/no-accumulating-spread
         ...acc,
@@ -134,6 +159,17 @@ export class StateStore implements IStateStore {
     );
 
     return allGroups;
+  }
+
+  /**
+   * Returns the defined grouping buckets for the current project
+   */
+  get projectStateGroups() {
+    const projectId = this.router.projectId;
+    if (!projectId) return [];
+    return Object.values(this.stateGroupMap)
+      .filter((group) => group.project_id === projectId)
+      .sort((a, b) => a.sequence - b.sequence);
   }
 
   /**
@@ -240,6 +276,89 @@ export class StateStore implements IStateStore {
       set(this.fetchedIntakeMap, projectId, true);
     });
     return intakeStateResponse;
+  };
+
+  /**
+   * fetches the custom state grouping buckets of a project
+   * @param workspaceSlug
+   * @param projectId
+   * @returns the ordered group definitions, built-ins included
+   */
+  fetchProjectStateGroups = async (workspaceSlug: string, projectId: string) => {
+    const groupsResponse = await this.stateService.getStateGroups(workspaceSlug, projectId);
+    runInAction(() => {
+      groupsResponse.forEach((group) => {
+        set(this.stateGroupMap, [group.id], group);
+      });
+      set(this.fetchedGroupMap, projectId, true);
+    });
+    return groupsResponse;
+  };
+
+  /**
+   * creates a custom state group in a project and adds it to the store
+   * @param workspaceSlug
+   * @param projectId
+   * @param data
+   * @returns
+   */
+  createStateGroup = async (workspaceSlug: string, projectId: string, data: Partial<TStateGroupDef>) =>
+    await this.stateService.createStateGroup(workspaceSlug, projectId, data).then((response) => {
+      runInAction(() => {
+        set(this.stateGroupMap, [response?.id], response);
+      });
+      return response;
+    });
+
+  /**
+   * updates a state group in the store, in case of failure reverts back to original group
+   * @param workspaceSlug
+   * @param projectId
+   * @param groupId
+   * @param data
+   * @returns
+   */
+  updateStateGroup = async (
+    workspaceSlug: string,
+    projectId: string,
+    groupId: string,
+    data: Partial<TStateGroupDef>
+  ) => {
+    const originalGroup = this.stateGroupMap[groupId];
+    try {
+      const response = await this.stateService.patchStateGroup(workspaceSlug, projectId, groupId, data);
+      runInAction(() => {
+        set(this.stateGroupMap, [response?.id], response);
+      });
+      return response;
+    } catch (error) {
+      runInAction(() => {
+        if (originalGroup) set(this.stateGroupMap, [groupId], originalGroup);
+      });
+      throw error;
+    }
+  };
+
+  /**
+   * deletes the state group from the store, in case of failure reverts back to original group
+   * @param workspaceSlug
+   * @param projectId
+   * @param groupId
+   */
+  deleteStateGroup = async (workspaceSlug: string, projectId: string, groupId: string) => {
+    if (!this.stateGroupMap?.[groupId]) return;
+    const originalGroup = this.stateGroupMap[groupId];
+    // oxlint-disable-next-line promise/always-return
+    await this.stateService.deleteStateGroup(workspaceSlug, projectId, groupId).then(() => {
+      runInAction(() => {
+        delete this.stateGroupMap[groupId];
+      });
+    }).catch((error) => {
+      runInAction(() => {
+        set(this.stateGroupMap, [groupId], originalGroup);
+      });
+      throw error;
+    });
   };
 
   /**
