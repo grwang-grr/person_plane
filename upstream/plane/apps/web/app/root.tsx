@@ -8,7 +8,7 @@ import { setDefaultOptions } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Links, Meta, Outlet, Scripts } from "react-router";
 import type { LinksFunction } from "react-router";
-import { ThemeProvider, useTheme } from "next-themes";
+import { ThemeProvider } from "next-themes";
 // plane imports
 import { SITE_DESCRIPTION, SITE_NAME } from "@plane/constants";
 // types
@@ -24,15 +24,17 @@ import ogImage from "@/app/assets/og-image.png?url";
 import globalStyles from "@/styles/globals.css?url";
 import type { Route } from "./+types/root";
 // components
-import { LogoSpinner } from "@/components/common/logo-spinner";
 // lib
 import { isStaleAssetError, recoverFromStaleAsset } from "@/lib/stale-asset-error";
 // local
 import { CustomErrorComponent } from "./error";
 // fonts
+// oxlint-disable-next-line import/no-unassigned-import -- Font packages register global CSS.
 import "@fontsource-variable/inter";
 import interVariableWoff2 from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
+// oxlint-disable-next-line import/no-unassigned-import -- Font packages register global CSS.
 import "@fontsource/material-symbols-rounded";
+// oxlint-disable-next-line import/no-unassigned-import -- Font packages register global CSS.
 import "@fontsource/ibm-plex-mono";
 
 const APP_TITLE = "项目管理";
@@ -117,14 +119,15 @@ export default function Root() {
 }
 
 export function HydrateFallback() {
-  const { resolvedTheme } = useTheme();
-
-  // if we are on the server or the theme is not resolved, return an empty div
-  if (typeof window === "undefined" || resolvedTheme === undefined) return <div />;
-
+  // Keep the prerendered shell identical to the first browser render.
+  // Theme colors come from CSS, so hydration never depends on localStorage.
   return (
-    <div className="relative flex h-screen w-full items-center justify-center bg-canvas">
-      <LogoSpinner />
+    <div
+      role="status"
+      aria-label="正在加载"
+      className="relative flex h-screen w-full items-center justify-center bg-canvas"
+    >
+      <span className="border-t-accent-primary size-8 animate-spin rounded-full border-2 border-subtle motion-reduce:animate-none" />
     </div>
   );
 }

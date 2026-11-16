@@ -10,6 +10,8 @@ import useSWR from "swr";
 import { Button } from "@makeplane/propel/components/button";
 import { ConfirmDialog } from "@plane/blocks/dialog";
 import { setToast } from "@plane/blocks/toast";
+import { getApiErrorMessage } from "@/lib/api-error";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { PageHead } from "@/components/core/page-title";
 import { DiaryCalendar, calendarGridRange } from "@/components/diary/diary-calendar";
 import { DiaryEditor } from "@/components/diary/diary-editor";
@@ -44,20 +46,7 @@ const TYPE_TABS: Array<{ key: "all" | TDiaryType; label: string }> = [
 
 const pad2 = (value: number) => String(value).padStart(2, "0");
 
-/** 从接口错误体里取出可读提示（DRF 字段名 → 错误信息的映射）。 */
-const extractErrorMessage = (failure: unknown, fallback: string): string => {
-  const data = (failure as { response?: { data?: Record<string, unknown> } })?.response?.data;
-  if (data && typeof data === "object") {
-    for (const value of Object.values(data)) {
-      if (typeof value === "string") return value;
-      if (Array.isArray(value) && typeof value[0] === "string") return value[0];
-    }
-  }
-  return fallback;
-};
-
-const toISO = (date: Date) =>
-  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+const toISO = (date: Date) => `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 
 /** 本周周日（含今天），用于「周总结」的所属日期与归属月。 */
 const sundayOfWeek = (date: Date) => {
@@ -78,8 +67,7 @@ const isoWeekKey = (date: Date) => {
 /** 总结的开放时机：周总结=周日，月总结=当月最后一天，年总结=12 月 31 日。 */
 const canCreateSummary = (type: TDiaryType, date: Date) => {
   if (type === "weekly") return date.getDay() === 0;
-  if (type === "monthly")
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate() === date.getDate();
+  if (type === "monthly") return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate() === date.getDate();
   if (type === "yearly") return date.getMonth() === 11 && date.getDate() === 31;
   return true;
 };
@@ -100,6 +88,20 @@ export default function DiaryPage() {
   const [query, setQuery] = useState("");
   // 编辑器目标：新建草稿（保存后才创建）或编辑已有日记。
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(null);
+  const [editorSession, setEditorSession] = useState(0);
+  const [editorDirty, setEditorDirty] = useState(false);
+  useUnsavedChanges(editorDirty);
+  const selectEditorTarget = useCallback(
+    (target: EditorTarget | null) => {
+      if (target?.kind === "existing" && editorTarget?.kind === "existing" && target.diaryId === editorTarget.diaryId)
+        return;
+      if (editorDirty && !window.confirm("放弃未保存的日记内容吗？")) return;
+      setEditorDirty(false);
+      setEditorSession((session) => session + 1);
+      setEditorTarget(target);
+    },
+    [editorDirty, editorTarget]
+  );
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [planSearch, setPlanSearch] = useState("");
@@ -114,15 +116,11 @@ export default function DiaryPage() {
   const { data: templates } = useSWR(["diary-templates", workspaceSlug], () =>
     diaryService.listDiaryTemplates(workspaceSlug)
   );
-  const { data: plans, mutate: mutatePlans } = useSWR<TPlan[]>(
-    ["plans", workspaceSlug, planSearch, planStatus],
-    () => diaryService.listPlans(workspaceSlug, { query: planSearch, status: planStatus })
+  const { data: plans, mutate: mutatePlans } = useSWR<TPlan[]>(["plans", workspaceSlug, planSearch, planStatus], () =>
+    diaryService.listPlans(workspaceSlug, { query: planSearch, status: planStatus })
   );
   // 日历会承接上个月、预览下个月，因此按整格范围拉取安排，衔接日也能看到内容。
-  const { start: monthStart, end: monthEnd } = useMemo(
-    () => calendarGridRange(calYear, calMonth),
-    [calYear, calMonth]
-  );
+  const { start: monthStart, end: monthEnd } = useMemo(() => calendarGridRange(calYear, calMonth), [calYear, calMonth]);
   const { data: occurrences, mutate: mutateOccurrences } = useSWR<TPlanOccurrence[]>(
     ["plan-occurrences", workspaceSlug, monthStart, monthEnd],
     () => diaryService.listOccurrences(workspaceSlug, monthStart, monthEnd)
@@ -158,33 +156,36 @@ export default function DiaryPage() {
   }, [mutatePlans, mutateOccurrences]);
 
   /** 打开写作页（不落库），点保存后才真正创建日记。 */
-  const openNewDiary = useCallback((type: TDiaryType, date?: string) => {
-    setError("");
-    const base = date ? new Date(`${date}T00:00:00`) : new Date();
-    if (type !== "daily" && !canCreateSummary(type, base)) {
-      setToast({ type: "error", title: "暂不可创建", message: SUMMARY_LOCKED_MESSAGE[type] });
-      return;
-    }
-    let periodKey = "";
-    let belongsMonth = "";
-    let diaryDate = toISO(base);
-    if (type === "weekly") {
-      const sunday = sundayOfWeek(base);
-      periodKey = isoWeekKey(sunday);
-      belongsMonth = `${sunday.getFullYear()}-${pad2(sunday.getMonth() + 1)}`;
-      diaryDate = toISO(sunday);
-    } else if (type === "monthly") {
-      periodKey = `${base.getFullYear()}-${pad2(base.getMonth() + 1)}`;
-      belongsMonth = periodKey;
-    } else if (type === "yearly") {
-      periodKey = `${base.getFullYear()}`;
-      belongsMonth = `${base.getFullYear()}-12`;
-    }
-    setEditorTarget({
-      kind: "draft",
-      draft: { diary_type: type, diary_date: diaryDate, period_key: periodKey, belongs_month: belongsMonth },
-    });
-  }, []);
+  const openNewDiary = useCallback(
+    (type: TDiaryType, date?: string) => {
+      setError("");
+      const base = date ? new Date(`${date}T00:00:00`) : new Date();
+      if (type !== "daily" && !canCreateSummary(type, base)) {
+        setToast({ type: "error", title: "暂不可创建", message: SUMMARY_LOCKED_MESSAGE[type] });
+        return;
+      }
+      let periodKey = "";
+      let belongsMonth = "";
+      let diaryDate = toISO(base);
+      if (type === "weekly") {
+        const sunday = sundayOfWeek(base);
+        periodKey = isoWeekKey(sunday);
+        belongsMonth = `${sunday.getFullYear()}-${pad2(sunday.getMonth() + 1)}`;
+        diaryDate = toISO(sunday);
+      } else if (type === "monthly") {
+        periodKey = `${base.getFullYear()}-${pad2(base.getMonth() + 1)}`;
+        belongsMonth = periodKey;
+      } else if (type === "yearly") {
+        periodKey = `${base.getFullYear()}`;
+        belongsMonth = `${base.getFullYear()}-12`;
+      }
+      selectEditorTarget({
+        kind: "draft",
+        draft: { diary_type: type, diary_date: diaryDate, period_key: periodKey, belongs_month: belongsMonth },
+      });
+    },
+    [selectEditorTarget]
+  );
 
   /** 所有删除操作统一走确认弹窗，确认后再执行并给出结果提示。 */
   const confirmDelete = useCallback(async () => {
@@ -194,7 +195,10 @@ export default function DiaryPage() {
       if (pendingDelete.type === "diary") {
         await diaryService.deleteDiary(workspaceSlug, pendingDelete.id);
         // 删除的是当前正在编辑的日记时，同步关闭编辑器避免指向已删除数据。
-        if (editorTarget?.kind === "existing" && editorTarget.diaryId === pendingDelete.id) setEditorTarget(null);
+        if (editorTarget?.kind === "existing" && editorTarget.diaryId === pendingDelete.id) {
+          setEditorDirty(false);
+          setEditorTarget(null);
+        }
         await mutateDiaries();
         setToast({ type: "success", title: "已删除", message: "日记已删除。" });
       } else if (pendingDelete.type === "plan") {
@@ -229,7 +233,7 @@ export default function DiaryPage() {
         setError("");
         await refreshCalendar();
       } catch (failure) {
-        setError(extractErrorMessage(failure, "创建计划失败，请重试。"));
+        setError(getApiErrorMessage(failure, "创建计划失败，请重试。"));
         throw failure;
       }
     },
@@ -243,7 +247,7 @@ export default function DiaryPage() {
         setError("");
         await refreshCalendar();
       } catch (failure) {
-        setError(extractErrorMessage(failure, "修改计划失败，请重试。"));
+        setError(getApiErrorMessage(failure, "修改计划失败，请重试。"));
         throw failure;
       }
     },
@@ -316,8 +320,13 @@ export default function DiaryPage() {
   };
 
   const editorPanel = editorTarget ? (
-    <div className="w-[680px] shrink-0 overflow-y-auto border-l border-subtle p-4">
+    <div className="absolute inset-0 z-20 overflow-y-auto border-l border-subtle bg-surface-1 p-4 md:static md:w-[min(680px,55vw)] md:shrink-0">
       <DiaryEditor
+        key={`${editorSession}-${
+          editorTarget.kind === "existing"
+            ? editorTarget.diaryId
+            : `draft-${activeDraft?.diary_type}-${activeDraft?.diary_date}`
+        }`}
         workspaceSlug={workspaceSlug}
         workspaceId={workspaceId}
         diary={activeDiary}
@@ -328,15 +337,18 @@ export default function DiaryPage() {
         tasks={options?.tasks ?? []}
         problems={problems?.results ?? []}
         onSaved={() => {
+          setEditorDirty(false);
           void mutateDiaries();
           // 新草稿保存后已落库，关闭面板避免继续编辑旧草稿。
           if (editorTarget?.kind === "draft") setEditorTarget(null);
         }}
         onDeleted={() => {
+          setEditorDirty(false);
           setEditorTarget(null);
           void mutateDiaries();
         }}
-        onClose={() => setEditorTarget(null)}
+        onClose={() => selectEditorTarget(null)}
+        onDirtyChange={setEditorDirty}
       />
     </div>
   ) : null;
@@ -357,7 +369,13 @@ export default function DiaryPage() {
               <button
                 key={key}
                 type="button"
-                onClick={() => setView(key)}
+                onClick={() => {
+                  if (key === view) return;
+                  if (editorDirty && !window.confirm("放弃未保存的日记内容并切换视图吗？")) return;
+                  setEditorTarget(null);
+                  setEditorDirty(false);
+                  setView(key);
+                }}
                 className={`rounded-sm px-3 py-1 text-body-sm-medium ${
                   view === key ? "bg-layer-2 text-primary" : "text-secondary hover:text-primary"
                 }`}
@@ -366,24 +384,18 @@ export default function DiaryPage() {
               </button>
             ))}
           </nav>
-          <Button
-            variant="primary"
-            size="md"
-            stretch="auto"
-            label="写日记"
-            onClick={() => openNewDiary("daily")}
-          />
+          <Button variant="primary" size="md" stretch="auto" label="写日记" onClick={() => openNewDiary("daily")} />
         </div>
       </header>
 
       {error && (
-        <p role="alert" className="border-b border-subtle bg-red-50 px-page-x py-2 text-body-sm-regular text-red-600">
+        <p role="alert" className="bg-red-50 text-red-600 border-b border-subtle px-page-x py-2 text-body-sm-regular">
           {error}
         </p>
       )}
 
       {view === "list" ? (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden">
           <div className="flex flex-1 flex-col overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 border-b border-subtle px-page-x py-2">
               <nav className="flex gap-1" aria-label="日记类型">
@@ -438,8 +450,8 @@ export default function DiaryPage() {
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto px-page-x py-4">
-              <table className="w-full text-left text-body-sm-regular">
+            <div className="flex-1 overflow-auto px-page-x py-4">
+              <table className="w-full min-w-[620px] text-left text-body-sm-regular">
                 <thead>
                   <tr className="text-body-xs-regular text-tertiary">
                     <th className="px-2 py-2">标题</th>
@@ -456,13 +468,13 @@ export default function DiaryPage() {
                         <button
                           type="button"
                           className="text-accent-primary hover:underline"
-                          onClick={() => setEditorTarget({ kind: "existing", diaryId: diary.id })}
+                          onClick={() => selectEditorTarget({ kind: "existing", diaryId: diary.id })}
                         >
                           {diary.title || "（无标题）"}
                         </button>
                       </td>
                       <td className="px-2 py-2 text-secondary">{DIARY_TYPE_LABELS[diary.diary_type]}</td>
-                      <td className="px-2 py-2 text-secondary">{diary.diary_date}</td>
+                      <td className="px-2 py-2 whitespace-nowrap text-secondary">{diary.diary_date}</td>
                       <td className="px-2 py-2">
                         {diary.is_primary ? (
                           <span className="text-accent-primary">✓ 主日记</span>
@@ -479,7 +491,7 @@ export default function DiaryPage() {
                       <td className="px-2 py-2">
                         <button
                           type="button"
-                          className="text-body-xs-regular text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 text-body-xs-regular"
                           onClick={() =>
                             setPendingDelete({
                               type: "diary",
@@ -507,7 +519,7 @@ export default function DiaryPage() {
           {editorPanel}
         </div>
       ) : (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden">
           <PlanPanel
             plans={plans ?? []}
             search={planSearch}
@@ -549,7 +561,7 @@ export default function DiaryPage() {
               }
               onCreateOccurrence={(planId, date) => void createOccurrence(planId, date)}
               onMoveOccurrence={(occurrence, date) => void moveOccurrence(occurrence, date)}
-              onOpenDiary={(diary) => setEditorTarget({ kind: "existing", diaryId: diary.id })}
+              onOpenDiary={(diary) => selectEditorTarget({ kind: "existing", diaryId: diary.id })}
               onCreateDiary={(date) => openNewDiary("daily", date)}
             />
             <p className="mt-3 text-body-xs-regular text-tertiary">
@@ -566,11 +578,7 @@ export default function DiaryPage() {
         handleSubmit={() => void confirmDelete()}
         isSubmitting={deleting}
         title={
-          pendingDelete?.type === "diary"
-            ? "删除日记"
-            : pendingDelete?.type === "plan"
-              ? "删除计划"
-              : "删除这次安排"
+          pendingDelete?.type === "diary" ? "删除日记" : pendingDelete?.type === "plan" ? "删除计划" : "删除这次安排"
         }
         content={
           pendingDelete?.type === "plan" ? (

@@ -10,10 +10,7 @@ import { observer } from "mobx-react";
 import { LIVE_BASE_PATH, LIVE_BASE_URL } from "@plane/constants";
 import { setToast } from "@plane/blocks/toast";
 import { CollaborativeDocumentEditorWithRef, DocumentEditorWithRef } from "@plane/editor";
-import {
-  convertBinaryDataToBase64String,
-  getBinaryDataFromDocumentEditorHTMLString,
-} from "@plane/editor";
+import { convertBinaryDataToBase64String, getBinaryDataFromDocumentEditorHTMLString } from "@plane/editor";
 import type {
   CollaborationState,
   EditorRefApi,
@@ -37,7 +34,6 @@ import { EditorMentionsRoot } from "@/components/editor/embeds/mentions";
 // hooks
 import { useEditorMention } from "@/hooks/editor";
 import { useMember } from "@/hooks/store/use-member";
-import { useWorkspace } from "@/hooks/store/use-workspace";
 import { useUser } from "@/hooks/store/user";
 import { usePageFilters } from "@/hooks/use-page-filters";
 import { useParseEditorContent } from "@/hooks/use-parse-editor-content";
@@ -139,7 +135,6 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
   const titleEditorRef = useRef<EditorTitleRefApi>(null);
   // store hooks
   const { data: currentUser } = useUser();
-  const { getWorkspaceBySlug } = useWorkspace();
   const { getUserDetails } = useMember();
   // derived values
   const {
@@ -148,7 +143,6 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
     editor: { editorRef, updateAssetsList },
     setSyncingStatus,
   } = page;
-  const workspaceId = getWorkspaceBySlug(workspaceSlug)?.id ?? "";
   // use editor mention
   const { fetchMentions } = useEditorMention({
     enableAdvancedMentions: true,
@@ -219,7 +213,7 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
   );
 
   const realtimeConfig = useMemo(() => buildRealtimeConfig(webhookConnectionParams), [webhookConnectionParams]);
-  const hasCollaborationServer = Boolean(LIVE_BASE_URL?.trim());
+  const hasCollaborationServer = Boolean(realtimeConfig);
   const localSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [localTitle, setLocalTitle] = useState(page.name ?? "");
   const [localSaveStatus, setLocalSaveStatus] = useState<"saving" | "saved" | "error">("saved");
@@ -337,7 +331,7 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
               <PageEditorHeaderRoot page={page} projectId={projectId} />
             </div>
           </div>
-          {hasCollaborationServer ? (
+          {hasCollaborationServer && realtimeConfig ? (
             <CollaborativeDocumentEditorWithRef
               editable={isContentEditable}
               id={pageId}
@@ -382,7 +376,7 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
                     placeholder="无标题"
                   />
                   <span
-                    className={`shrink-0 text-xs ${
+                    className={`text-xs shrink-0 ${
                       localSaveStatus === "error" ? "text-danger-primary" : "text-tertiary"
                     }`}
                     aria-live="polite"
@@ -392,32 +386,32 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
                 </div>
               </div>
               <DocumentEditorWithRef
-              editable={isContentEditable}
-              id={pageId}
-              value={page.description_html ?? "<p></p>"}
-              placeholder="按 '/' 唤出命令…"
-              fileHandler={config.fileHandler}
-              handleEditorReady={handleEditorReady}
-              ref={editorForwardRef}
-              containerClassName="h-full p-0 pb-64"
-              displayConfig={displayConfig}
-              getEditorMetaData={getEditorMetaData}
-              mentionHandler={{
-                searchCallback: async (query) => {
-                  const res = await fetchMentions(query);
-                  if (!res) throw new Error("加载提及信息失败");
-                  return res;
-                },
-                // oxlint-disable-next-line no-shadow
-                renderComponent: (props) => <EditorMentionsRoot {...props} />,
-                getMentionedEntityDetails: (id: string) => ({ display_name: getUserDetails(id)?.display_name ?? "" }),
-              }}
-              user={userConfig}
-              disabledExtensions={documentEditorExtensions.disabled}
-              flaggedExtensions={documentEditorExtensions.flagged}
-              onAssetChange={updateAssetsList}
-              extendedEditorProps={extendedEditorProps}
-              onChange={handleLocalDocumentChange}
+                editable={isContentEditable}
+                id={pageId}
+                value={page.description_html ?? "<p></p>"}
+                placeholder="按 '/' 唤出命令…"
+                fileHandler={config.fileHandler}
+                handleEditorReady={handleEditorReady}
+                ref={editorForwardRef}
+                containerClassName="h-full p-0 pb-64"
+                displayConfig={displayConfig}
+                getEditorMetaData={getEditorMetaData}
+                mentionHandler={{
+                  searchCallback: async (query) => {
+                    const res = await fetchMentions(query);
+                    if (!res) throw new Error("加载提及信息失败");
+                    return res;
+                  },
+                  // oxlint-disable-next-line no-shadow
+                  renderComponent: (props) => <EditorMentionsRoot {...props} />,
+                  getMentionedEntityDetails: (id: string) => ({ display_name: getUserDetails(id)?.display_name ?? "" }),
+                }}
+                user={userConfig}
+                disabledExtensions={documentEditorExtensions.disabled}
+                flaggedExtensions={documentEditorExtensions.flagged}
+                onAssetChange={updateAssetsList}
+                extendedEditorProps={extendedEditorProps}
+                onChange={handleLocalDocumentChange}
               />
             </>
           )}

@@ -108,8 +108,7 @@ class Diary(BaseModel):
             # 周 / 月 / 年总结每周期各一篇。
             models.UniqueConstraint(
                 fields=["owner", "diary_type", "period_key"],
-                condition=models.Q(deleted_at__isnull=True)
-                & models.Q(diary_type__in=["weekly", "monthly", "yearly"]),
+                condition=models.Q(deleted_at__isnull=True) & models.Q(diary_type__in=["weekly", "monthly", "yearly"]),
                 name="diary_summary_unique_owner_period",
             ),
         ]
@@ -209,6 +208,14 @@ class Plan(BaseModel):
         ordering = ("-is_pinned", "-created_at")
         indexes = [
             models.Index(fields=["workspace", "owner"], name="plan_owner_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(recurrence_interval__gte=1), name="plan_interval_positive"),
+            models.CheckConstraint(
+                condition=models.Q(recurrence_bymonthday__isnull=True)
+                | models.Q(recurrence_bymonthday__gte=1, recurrence_bymonthday__lte=31),
+                name="plan_monthday_valid",
+            ),
         ]
 
     def __str__(self):

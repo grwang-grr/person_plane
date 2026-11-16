@@ -20,6 +20,7 @@ import { DiaryLinks } from "@/components/diary/diary-links";
 import { useEditorAsset } from "@/hooks/store/use-editor-asset";
 // services
 import { diaryService } from "@/services/diary.service";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { WorkspaceService } from "@/services/workspace.service";
 import type { ProblemTask, PersonalProblem } from "@/services/problem.service";
 
@@ -54,6 +55,7 @@ type DiaryEditorProps = {
   onSaved: () => void;
   onDeleted: () => void;
   onClose: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 };
 
 export function DiaryEditor({
@@ -69,6 +71,7 @@ export function DiaryEditor({
   onSaved,
   onDeleted,
   onClose,
+  onDirtyChange,
 }: DiaryEditorProps) {
   const { uploadEditorAsset, duplicateEditorAsset } = useEditorAsset();
   const editorRef = useRef<EditorRefApi>(null);
@@ -80,16 +83,23 @@ export function DiaryEditor({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [savedValues, setSavedValues] = useState(() => ({
+    title: diary?.title ?? "",
+    html: diary?.description_html === "<p></p>" ? "" : (diary?.description_html ?? ""),
+    diaryDate: diary?.diary_date ?? draft?.diary_date ?? "",
+    templateId: diary?.template ?? "",
+  }));
+  const dirty =
+    title !== savedValues.title ||
+    (html === "<p></p>" ? "" : html) !== savedValues.html ||
+    diaryDate !== savedValues.diaryDate ||
+    templateId !== savedValues.templateId;
 
   const diaryType: TDiaryType = diary?.diary_type ?? draft?.diary_type ?? "daily";
 
   useEffect(() => {
-    setTitle(diary?.title ?? "");
-    setHtml(diary?.description_html ?? "");
-    setDiaryDate(diary?.diary_date ?? draft?.diary_date ?? "");
-    setTemplateId(diary?.template ?? "");
-    setError("");
-  }, [diary, draft]);
+    onDirtyChange(dirty);
+  }, [dirty, onDirtyChange]);
 
   const typeTemplates = useMemo(
     () => templates.filter((template) => template.diary_type === diaryType),
@@ -107,6 +117,7 @@ export function DiaryEditor({
   };
 
   const handleSave = async () => {
+    if (busy || deleting || (!diary && !draft)) return;
     setBusy(true);
     setError("");
     try {
@@ -129,17 +140,11 @@ export function DiaryEditor({
           template: templateId || undefined,
         });
       }
+      setSavedValues({ title, html: html === "<p></p>" ? "" : html, diaryDate, templateId });
       setToast({ type: "success", title: "已保存", message: "日记已保存。" });
       onSaved();
     } catch (failure) {
-      const data = (failure as { response?: { data?: Record<string, unknown> } })?.response?.data;
-      const firstError = data && typeof data === "object" ? Object.values(data)[0] : undefined;
-      const message =
-        typeof firstError === "string"
-          ? firstError
-          : Array.isArray(firstError) && typeof firstError[0] === "string"
-            ? firstError[0]
-            : "保存失败，请重试。";
+      const message = getApiErrorMessage(failure, "保存失败，请重试。");
       setError(message);
       setToast({ type: "error", title: "保存失败", message });
     } finally {
@@ -148,7 +153,7 @@ export function DiaryEditor({
   };
 
   const handleDelete = async () => {
-    if (!diary) return;
+    if (!diary || busy || deleting) return;
     setDeleting(true);
     setError("");
     try {
@@ -165,7 +170,7 @@ export function DiaryEditor({
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <fieldset disabled={busy || deleting} className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-sm bg-layer-2 px-2 py-1 text-body-xs-medium text-secondary">
           {DIARY_TYPE_LABELS[diaryType]}
@@ -194,13 +199,18 @@ export function DiaryEditor({
             </option>
           ))}
         </select>
-        {!diary && <span className="text-body-xs-regular text-tertiary">未保存的草稿</span>}
+        {dirty && (
+          <span role="status" className="text-body-xs-regular text-tertiary">
+            有未保存的更改
+          </span>
+        )}
+        {!diary && !dirty && <span className="text-body-xs-regular text-tertiary">未保存的草稿</span>}
       </div>
 
       <input
         aria-label="日记标题"
         placeholder="日记标题"
-        className="h-8 w-full rounded-sm border border-subtle bg-surface-1 px-2 text-body-sm-medium text-primary outline-none focus:border-accent-primary"
+        className="focus:border-accent-primary h-8 w-full rounded-sm border border-subtle bg-surface-1 px-2 text-body-sm-medium text-primary outline-none"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
       />
@@ -223,19 +233,20 @@ export function DiaryEditor({
           <option value="h2">二级标题</option>
           <option value="h3">三级标题</option>
         </select>
-        <span className="mx-1 h-4 w-px bg-subtle-1" />
+        <span className="bg-subtle-1 mx-1 h-4 w-px" />
         {(
           [
-            ["bold", "B"],
-            ["italic", "I"],
-            ["underline", "U"],
-            ["strikethrough", "S"],
+            ["bold", "B", "加粗"],
+            ["italic", "I", "斜体"],
+            ["underline", "U", "下划线"],
+            ["strikethrough", "S", "删除线"],
           ] as const
-        ).map(([command, label]) => (
+        ).map(([command, label, description]) => (
           <button
             key={command}
             type="button"
-            title={command}
+            title={description}
+            aria-label={description}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => editorRef.current?.executeMenuItemCommand({ itemKey: command })}
             className={`min-w-7 rounded-sm px-1.5 py-1 text-body-xs-medium text-secondary hover:bg-layer-2 hover:text-primary ${
@@ -245,7 +256,7 @@ export function DiaryEditor({
             {label}
           </button>
         ))}
-        <span className="mx-1 h-4 w-px bg-subtle-1" />
+        <span className="bg-subtle-1 mx-1 h-4 w-px" />
         {(
           [
             ["bulleted-list", "列表"],
@@ -280,43 +291,44 @@ export function DiaryEditor({
         </button>
       </div>
 
-      <RichTextEditor
-        key={`diary-${diary?.id ?? draft?.diary_date ?? "new"}-${diary?.updated_at ?? ""}`}
-        ref={editorRef}
-        bubbleMenuEnabled={false}
-        id={`diary-${diary?.id ?? "new"}`}
-        initialValue={html || "<p></p>"}
-        containerClassName="min-h-64 rounded-md border border-subtle bg-layer-1 p-3"
-        workspaceSlug={workspaceSlug}
-        workspaceId={workspaceId}
-        disabledExtensions={["issue-embed", "collaboration-cursor"] as ("issue-embed" | "collaboration-cursor")[]}
-        editable
-        placeholder="记录今天发生了什么、想法与感受"
-        searchMentionCallback={async (payload) => await workspaceService.searchEntity(workspaceSlug, payload)}
-        uploadFile={async (blockId, file) => {
-          // 草稿先借用日记日期作为临时实体标识，保存后附件仍归属该日记。
-          const { asset_id } = await uploadEditorAsset({
-            blockId,
-            data: {
-              entity_identifier: diary?.id ?? `${draft?.diary_type ?? "daily"}-${draft?.diary_date ?? diaryDate}`,
-              entity_type: EFileAssetType.DIARY_DESCRIPTION,
-            },
-            file,
-            workspaceSlug,
-          });
-          return asset_id;
-        }}
-        duplicateFile={async (assetId) => {
-          const { asset_id } = await duplicateEditorAsset({
-            assetId,
-            entityId: diary?.id ?? `${draft?.diary_type ?? "daily"}-${draft?.diary_date ?? diaryDate}`,
-            entityType: EFileAssetType.DIARY_DESCRIPTION,
-            workspaceSlug,
-          });
-          return asset_id;
-        }}
-        onChange={(_json, next) => setHtml(next === "<p></p>" ? "" : next)}
-      />
+      <div inert={busy || deleting} aria-busy={busy || deleting}>
+        <RichTextEditor
+          ref={editorRef}
+          bubbleMenuEnabled={false}
+          id={`diary-${diary?.id ?? "new"}`}
+          initialValue={html || "<p></p>"}
+          containerClassName="min-h-64 rounded-md border border-subtle bg-layer-1 p-3"
+          workspaceSlug={workspaceSlug}
+          workspaceId={workspaceId}
+          disabledExtensions={["issue-embed", "collaboration-cursor"] as ("issue-embed" | "collaboration-cursor")[]}
+          editable
+          placeholder="记录今天发生了什么、想法与感受"
+          searchMentionCallback={async (payload) => await workspaceService.searchEntity(workspaceSlug, payload)}
+          uploadFile={async (blockId, file) => {
+            // 草稿先借用日记日期作为临时实体标识，保存后附件仍归属该日记。
+            const { asset_id } = await uploadEditorAsset({
+              blockId,
+              data: {
+                entity_identifier: diary?.id ?? `${draft?.diary_type ?? "daily"}-${draft?.diary_date ?? diaryDate}`,
+                entity_type: EFileAssetType.DIARY_DESCRIPTION,
+              },
+              file,
+              workspaceSlug,
+            });
+            return asset_id;
+          }}
+          duplicateFile={async (assetId) => {
+            const { asset_id } = await duplicateEditorAsset({
+              assetId,
+              entityId: diary?.id ?? `${draft?.diary_type ?? "daily"}-${draft?.diary_date ?? diaryDate}`,
+              entityType: EFileAssetType.DIARY_DESCRIPTION,
+              workspaceSlug,
+            });
+            return asset_id;
+          }}
+          onChange={(_json, next) => setHtml(next === "<p></p>" ? "" : next)}
+        />
+      </div>
 
       {diary ? (
         <DiaryLinks
@@ -334,7 +346,7 @@ export function DiaryEditor({
       )}
 
       {error && (
-        <p role="alert" className="text-body-sm-regular text-red-600">
+        <p role="alert" className="text-red-600 text-body-sm-regular">
           {error}
         </p>
       )}
@@ -373,6 +385,6 @@ export function DiaryEditor({
           secondaryButtonText="取消"
         />
       )}
-    </div>
+    </fieldset>
   );
 }

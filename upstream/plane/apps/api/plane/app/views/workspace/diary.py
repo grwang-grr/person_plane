@@ -3,8 +3,12 @@
 # See the LICENSE file for details.
 
 # Django imports
+from datetime import timedelta
+
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
+from django.shortcuts import get_object_or_404
+from django.utils.functional import cached_property
 
 # Third party imports
 from rest_framework import status
@@ -20,7 +24,13 @@ from plane.app.serializers import (
     PlanSerializer,
 )
 from plane.app.views.base import BaseViewSet
+from plane.app.serializers.diary import (
+    DiaryDateRangeSerializer,
+    PlanDeleteSerializer,
+    PlanOccurrenceCreateSerializer,
+)
 from plane.db.models import Diary, DiaryLink, DiaryTemplate, Plan, PlanOccurrence, Workspace
+from plane.utils.plan_recurrence import materialize_occurrences
 
 SUMMARY_TYPES = (Diary.Type.WEEKLY, Diary.Type.MONTHLY, Diary.Type.YEARLY)
 
@@ -40,7 +50,13 @@ class DiaryBaseViewSet(BaseViewSet):
     use_read_replica = True
 
     def get_workspace(self):
-        return Workspace.objects.get(slug=self.kwargs.get("slug"))
+        return get_object_or_404(Workspace, slug=self.kwargs.get("slug"))
+
+    @cached_property
+    def date_range(self):
+        serializer = DiaryDateRangeSerializer(data=self.request.query_params)
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
 
 
 class DiaryViewSet(DiaryBaseViewSet):
@@ -58,8 +74,8 @@ class DiaryViewSet(DiaryBaseViewSet):
     def list(self, request, slug):
         queryset = self.get_queryset()
         diary_type = request.query_params.get("diary_type")
-        date_from = request.query_params.get("date_from")
-        date_to = request.query_params.get("date_to")
+        date_from = self.date_range.get("date_from")
+        date_to = self.date_range.get("date_to")
         query = request.query_params.get("query")
 
         if diary_type:
@@ -95,9 +111,7 @@ class DiaryViewSet(DiaryBaseViewSet):
         diary_date = serializer.validated_data.get("diary_date")
         with transaction.atomic():
             # 当天第一篇默认成为主日记。
-            has_primary = Diary.objects.filter(
-                owner=request.user, diary_date=diary_date, is_primary=True
-            ).exists()
+            has_primary = Diary.objects.filter(owner=request.user, diary_date=diary_date, is_primary=True).exists()
             serializer.save(
                 workspace=workspace,
                 owner=request.user,
@@ -140,9 +154,9 @@ class DiaryViewSet(DiaryBaseViewSet):
         """设为某天的主日记，原主日记自动降级。"""
         diary = self.get_object()
         with transaction.atomic():
-            Diary.objects.filter(
-                owner=request.user, diary_date=diary.diary_date, is_primary=True
-            ).exclude(pk=diary.pk).update(is_primary=False)
+            Diary.objects.filter(owner=request.user, diary_date=diary.diary_date, is_primary=True).exclude(
+                pk=diary.pk
+            ).update(is_primary=False)
             diary.is_primary = True
             diary.save(update_fields=["is_primary", "updated_at"])
         return Response(DiarySerializer(diary).data, status=status.HTTP_200_OK)
@@ -227,10 +241,15 @@ class PlanViewSet(DiaryBaseViewSet):
     model = Plan
 
     def get_queryset(self):
+        occurrences = PlanOccurrence.objects.filter(is_deleted=False)
+        if date_from := self.date_range.get("date_from"):
+            occurrences = occurrences.filter(date__gte=date_from)
+        if date_to := self.date_range.get("date_to"):
+            occurrences = occurrences.filter(date__lte=date_to)
         return (
             self.filter_queryset(super().get_queryset())
             .filter(workspace__slug=self.kwargs.get("slug"), owner=self.request.user)
-            .prefetch_related("occurrences")
+            .prefetch_related(Prefetch("occurrences", queryset=occurrences, to_attr="visible_occurrences"))
             .distinct()
         )
 
@@ -248,60 +267,75 @@ class PlanViewSet(DiaryBaseViewSet):
 
         # 置顶优先。
         queryset = queryset.order_by("-is_pinned", "sort_order", "-created_at")
-        return Response(PlanSerializer(queryset, many=True, context={"request": request}).data)
+        return Response(PlanSerializer(queryset, many=True).data)
 
     def create(self, request, slug):
         workspace = self.get_workspace()
-        serializer = PlanSerializer(data=request.data, context={"request": request})
+        serializer = PlanSerializer(data=request.data, context={"date_range": self.date_range})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # 同名计划视为同一条，避免重复创建后日历出现重复安排。
         title = (serializer.validated_data.get("title") or "").strip()
         if title and Plan.objects.filter(owner=request.user, title__iexact=title).exists():
-            return Response(
-                {"title": "已存在同名计划，请在左侧列表中直接修改"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"title": "已存在同名计划，请在左侧列表中直接修改"}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             plan = serializer.save(workspace=workspace, owner=request.user)
-            _materialize_occurrences(plan)
-        return Response(PlanSerializer(plan, context={"request": request}).data, status=status.HTTP_201_CREATED)
+            materialize_occurrences(plan)
+        return Response(
+            PlanSerializer(plan, context={"date_range": self.date_range}).data, status=status.HTTP_201_CREATED
+        )
 
     def partial_update(self, request, slug, pk):
         plan = self.get_object()
-        serializer = PlanSerializer(plan, data=request.data, partial=True, context={"request": request})
+        serializer = PlanSerializer(plan, data=request.data, partial=True, context={"date_range": self.date_range})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # 改名时同样不允许与其他计划重名。
         new_title = (serializer.validated_data.get("title") or "").strip()
         if new_title and new_title.lower() != plan.title.lower():
-            duplicated = (
-                Plan.objects.filter(owner=request.user, title__iexact=new_title).exclude(pk=plan.pk).exists()
-            )
+            duplicated = Plan.objects.filter(owner=request.user, title__iexact=new_title).exclude(pk=plan.pk).exists()
             if duplicated:
                 return Response({"title": "已存在同名计划"}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
+            rule_changed = any(
+                field.startswith("recurrence") and value != getattr(plan, field)
+                for field, value in serializer.validated_data.items()
+            )
             plan = serializer.save()
-            _materialize_occurrences(plan)
-        return Response(PlanSerializer(plan, context={"request": request}).data, status=status.HTTP_200_OK)
+            if rule_changed:
+                materialize_occurrences(plan)
+        # get_object() prefetched the old calendar; rules may have added new dates.
+        del plan.visible_occurrences
+        return Response(PlanSerializer(plan, context={"date_range": self.date_range}).data, status=status.HTTP_200_OK)
 
     def destroy(self, request, slug, pk):
         """删除范围：this（单次）/ future（本次及以后）/ all（整条计划）。"""
         plan = self.get_object()
-        scope = request.query_params.get("scope", "all")
-        date = request.query_params.get("date")
+        serializer = PlanDeleteSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        scope = serializer.validated_data["scope"]
+        date = serializer.validated_data.get("date")
 
         with transaction.atomic():
-            if scope == "this" and date:
+            if scope == "this":
                 plan.occurrences.filter(date=date).update(is_deleted=True)
                 return Response(status=status.HTTP_204_NO_CONTENT)
-            if scope == "future" and date:
+            if scope == "future":
                 plan.occurrences.filter(date__gte=date).update(is_deleted=True)
-                plan.recurrence_end_date = _prev_day(date)
-                plan.save(update_fields=["recurrence_end_date", "updated_at"])
+                # Cutting at/before the start leaves no repeating dates.
+                if plan.recurrence_start_date and date <= plan.recurrence_start_date:
+                    plan.recurrence = Plan.Recurrence.NONE
+                    previous_day = plan.recurrence_start_date
+                else:
+                    previous_day = date - timedelta(days=1) if date > date.min else date
+                    if date == date.min:
+                        plan.recurrence = Plan.Recurrence.NONE
+                plan.recurrence_end_date = min(plan.recurrence_end_date or previous_day, previous_day)
+                plan.save(update_fields=["recurrence", "recurrence_end_date", "updated_at"])
                 return Response(status=status.HTTP_204_NO_CONTENT)
             plan.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -314,15 +348,20 @@ class PlanOccurrenceViewSet(DiaryBaseViewSet):
     def get_queryset(self):
         return (
             self.filter_queryset(super().get_queryset())
-            .filter(workspace__slug=self.kwargs.get("slug"), owner=self.request.user, is_deleted=False)
+            .filter(
+                workspace__slug=self.kwargs.get("slug"),
+                owner=self.request.user,
+                is_deleted=False,
+                plan__deleted_at__isnull=True,
+            )
             .select_related("plan")
             .distinct()
         )
 
     def list(self, request, slug):
         queryset = self.get_queryset()
-        date_from = request.query_params.get("date_from")
-        date_to = request.query_params.get("date_to")
+        date_from = self.date_range.get("date_from")
+        date_to = self.date_range.get("date_to")
         if date_from:
             queryset = queryset.filter(date__gte=date_from)
         if date_to:
@@ -333,11 +372,11 @@ class PlanOccurrenceViewSet(DiaryBaseViewSet):
     def create(self, request, slug):
         """给已有计划追加某天安排，左侧不重复创建计划。"""
         workspace = self.get_workspace()
-        plan_id = request.data.get("plan_id")
-        date = request.data.get("date")
-        if not plan_id or not date:
-            return Response({"error": "plan_id 与 date 必填"}, status=status.HTTP_400_BAD_REQUEST)
-        plan = Plan.objects.get(pk=plan_id, workspace=workspace, owner=request.user)
+        serializer = PlanOccurrenceCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        plan_id = serializer.validated_data["plan_id"]
+        date = serializer.validated_data["date"]
+        plan = get_object_or_404(Plan, pk=plan_id, workspace=workspace, owner=request.user)
         occurrence, _created = PlanOccurrence.objects.get_or_create(
             workspace=workspace, owner=request.user, plan=plan, date=date, is_deleted=False
         )
@@ -349,8 +388,10 @@ class PlanOccurrenceViewSet(DiaryBaseViewSet):
     def partial_update(self, request, slug, pk):
         """勾选完成 / 只修改当天 / 拖拽改期：只影响当前这一次安排。"""
         occurrence = self.get_object()
-        new_date = request.data.get("date")
-        if new_date and str(new_date) != occurrence.date.isoformat():
+        serializer = PlanOccurrenceSerializer(occurrence, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        new_date = serializer.validated_data.get("date")
+        if new_date and new_date != occurrence.date:
             # 同一计划同一天只能有一条有效安排，改期冲突时给出明确提示。
             conflict = (
                 PlanOccurrence.objects.filter(plan=occurrence.plan, date=new_date, is_deleted=False)
@@ -359,9 +400,6 @@ class PlanOccurrenceViewSet(DiaryBaseViewSet):
             )
             if conflict:
                 return Response({"date": "该计划在这一天已有安排"}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = PlanOccurrenceSerializer(occurrence, data=request.data, partial=True)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -370,58 +408,3 @@ class PlanOccurrenceViewSet(DiaryBaseViewSet):
         occurrence.is_deleted = True
         occurrence.save(update_fields=["is_deleted", "updated_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-def _prev_day(date_str: str):
-    from datetime import date as _date, timedelta
-
-    return _date.fromisoformat(date_str) - timedelta(days=1)
-
-
-def _materialize_occurrences(plan: Plan) -> None:
-    """按重复规则把计划铺到日历（生成 PlanOccurrence 实例）。
-
-    已存在的安排（含勾选、覆盖）保持不变，仅补足缺失日期。
-    """
-    if not plan.recurrence_start_date or plan.recurrence == Plan.Recurrence.NONE:
-        return
-
-    from datetime import timedelta
-
-    start = plan.recurrence_start_date
-    end = plan.recurrence_end_date
-    existing = set(plan.occurrences.filter(is_deleted=False).values_list("date", flat=True))
-
-    cursor = start
-    limit = 400  # 安全上限，避免异常规则生成过多
-    created = []
-    while limit > 0 and (end is None or cursor <= end):
-        if cursor not in existing and _matches_rule(plan, cursor):
-            created.append(
-                PlanOccurrence(
-                    workspace=plan.workspace,
-                    owner=plan.owner,
-                    plan=plan,
-                    date=cursor,
-                )
-            )
-        cursor += timedelta(days=1)
-        limit -= 1
-    if created:
-        PlanOccurrence.objects.bulk_create(created, ignore_conflicts=True)
-
-
-def _matches_rule(plan: Plan, day) -> bool:
-    if plan.recurrence == Plan.Recurrence.DAILY:
-        if plan.recurrence_interval <= 1:
-            return True
-        offset = day.toordinal() - plan.recurrence_start_date.toordinal()
-        return offset % plan.recurrence_interval == 0
-    if plan.recurrence == Plan.Recurrence.WEEKDAYS:
-        return day.weekday() < 5
-    if plan.recurrence == Plan.Recurrence.WEEKLY:
-        byweekday = plan.recurrence_byweekday or []
-        return day.weekday() in byweekday
-    if plan.recurrence == Plan.Recurrence.MONTHLY:
-        return day.day == plan.recurrence_bymonthday
-    return False

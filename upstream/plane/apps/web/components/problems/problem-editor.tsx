@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { useBeforeUnload, useBlocker } from "react-router";
+import { useEffect, useState } from "react";
+import { useUnsavedChanges as useProblemDraftGuard } from "@/hooks/use-unsaved-changes";
+export { useUnsavedChanges as useProblemDraftGuard } from "@/hooks/use-unsaved-changes";
 import useSWR from "swr";
 import { Button } from "@makeplane/propel/components/button";
 import { Icon } from "@makeplane/propel/components/icon";
@@ -18,31 +19,6 @@ import type { PersonalProblem, ProblemInput, ProblemProject, ProblemTask } from 
 
 export const controlClass =
   "w-full rounded-sm border border-subtle bg-surface-1 px-3 py-2 text-body-sm-regular text-primary";
-
-export function useProblemDraftGuard(dirty: boolean) {
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      dirty &&
-      `${currentLocation.pathname}${currentLocation.search}` !== `${nextLocation.pathname}${nextLocation.search}`
-  );
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      if (window.confirm("有未保存的内容，确定离开并放弃更改吗？")) blocker.proceed();
-      else blocker.reset();
-    }
-  }, [blocker]);
-  useBeforeUnload(
-    useCallback(
-      (event: BeforeUnloadEvent) => {
-        if (dirty) {
-          event.preventDefault();
-          event.returnValue = "";
-        }
-      },
-      [dirty]
-    )
-  );
-}
 
 export function ProblemChoices({
   label,
@@ -241,7 +217,6 @@ export function ProblemEditor({
                   size="md"
                   aria-label="问题标题"
                   id="problem-title-input"
-                  autoFocus
                   value={draft.title}
                   maxLength={200}
                   placeholder="一句话描述遇到的问题"
@@ -354,7 +329,7 @@ export function ProblemEditor({
                 </>
               )}
               {optionsError && (
-                <div role="alert" className="text-danger-primary text-body-xs-regular">
+                <div role="alert" className="text-body-xs-regular text-danger-primary">
                   关联选项加载失败。
                   <button type="button" className="underline" onClick={() => void retryOptions()}>
                     重试
@@ -392,7 +367,7 @@ export function ProblemEditor({
             </div>
           </div>
           {error && (
-            <p role="alert" className="text-danger-primary mt-5 text-body-sm-regular">
+            <p role="alert" className="mt-5 text-body-sm-regular text-danger-primary">
               {error}
             </p>
           )}

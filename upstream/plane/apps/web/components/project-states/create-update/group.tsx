@@ -24,7 +24,7 @@ type TStateGroupFormErrors = Partial<Record<"name" | "key" | "form", string>>;
 
 const DEFAULT_COLOR = "#8B5CF6";
 
-export function stateGroupDraftToPartial(draft: TStateGroupDraft): Partial<TStateGroupDef> {
+export function stateGroupDraftToPartial(draft: TStateGroupDraft): TStateGroupDraft {
   return {
     name: draft.name.trim(),
     key: draft.key.trim(),
@@ -51,7 +51,9 @@ const extractStateGroupErrors = (error: unknown): TStateGroupFormErrors => {
     return {
       name,
       key,
-      form: toErrorMessage(record.error ?? record.detail ?? record.message) ?? (name || key ? undefined : "保存失败，请稍后重试"),
+      form:
+        toErrorMessage(record.error ?? record.detail ?? record.message) ??
+        (name || key ? undefined : "保存失败，请稍后重试"),
     };
   }
   return { form: "保存失败，请稍后重试" };
@@ -131,7 +133,10 @@ export function StateGroupForm(props: TStateGroupForm) {
               }
             />
             <PopoverContent variant="rich" side="bottom" align="start">
-              <ColorSwatchPicker value={draft.color} onChange={(hex) => setDraft((prev) => ({ ...prev, color: hex }))} />
+              <ColorSwatchPicker
+                value={draft.color}
+                onChange={(hex) => setDraft((prev) => ({ ...prev, color: hex }))}
+              />
             </PopoverContent>
           </Popover>
           <div className="min-w-0 flex-1">
@@ -149,7 +154,6 @@ export function StateGroupForm(props: TStateGroupForm) {
                 setErrors((prev) => ({ ...prev, name: "" }));
               }}
               maxLength={64}
-              autoFocus
               error={errors.name}
             />
           </div>
