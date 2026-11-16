@@ -142,7 +142,7 @@ export function StateGroupForm(props: TStateGroupForm) {
               value={draft.name}
               onChange={(e) => {
                 setDraft((prev) => ({ ...prev, name: e.target.value }));
-                setErrors((prev) => ({ ...prev, name: "" }));
+                setErrors((prev) => ({ ...prev, name: undefined }));
               }}
               maxLength={64}
               error={errors.name}
@@ -162,7 +162,7 @@ export function StateGroupForm(props: TStateGroupForm) {
             value={draft.key}
             onChange={(e) => {
               setDraft((prev) => ({ ...prev, key: e.target.value }));
-              setErrors((prev) => ({ ...prev, key: "" }));
+              setErrors((prev) => ({ ...prev, key: undefined }));
             }}
             maxLength={32}
             error={errors.key}
