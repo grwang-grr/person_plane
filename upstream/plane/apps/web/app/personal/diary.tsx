@@ -18,17 +18,11 @@ import { DiaryEditor } from "@/components/diary/diary-editor";
 import type { DiaryDraft } from "@/components/diary/diary-editor";
 import { PlanPanel } from "@/components/diary/plan-panel";
 import { useWorkspace } from "@/hooks/store/use-workspace";
+import { DIARY_TYPE_LABELS } from "@/lib/diary";
 import { diaryService } from "@/services/diary.service";
 import type { TPlanCreatePayload } from "@/services/diary.service";
 import { problemService } from "@/services/problem.service";
 import type { TDiary, TDiaryType, TPlan, TPlanOccurrence } from "@plane/types";
-
-const DIARY_TYPE_LABELS: Record<TDiaryType, string> = {
-  daily: "普通日记",
-  weekly: "周总结",
-  monthly: "月总结",
-  yearly: "年总结",
-};
 
 /** 待确认删除的目标：日记 / 计划 / 单次安排。 */
 type PendingDelete = { type: "diary" | "plan" | "occurrence"; id: string; label: string };

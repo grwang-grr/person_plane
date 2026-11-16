@@ -68,8 +68,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
   // router
   const { workspaceSlug, projectId, moduleId, cycleId } = useParams();
   // store
-  const { getStateById, projectStates, deleteState, moveStatePosition, markStateAsDefault, updateState } =
-    useProjectState();
+  const { getStateById, projectStates, deleteState, markStateAsDefault, updateState } = useProjectState();
 
   // 看板按状态分组时，列头直接提供与项目设置页相同的状态操作（编辑/设为默认/删除）。
   const isStateColumn = group_by === "state";
@@ -184,7 +183,8 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
             state={columnState}
             onEdit={() => setIsEditStateOpen(true)}
             stateOperationsCallbacks={{
-              markStateAsDefault: (stateId: string) => markStateAsDefault(workspaceSlug?.toString(), projectId?.toString(), stateId),
+              markStateAsDefault: (stateId: string) =>
+                markStateAsDefault(workspaceSlug?.toString(), projectId?.toString(), stateId),
               deleteState: (stateId: string) => deleteState(workspaceSlug?.toString(), projectId?.toString(), stateId),
             }}
           />

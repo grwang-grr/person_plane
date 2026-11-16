@@ -19,19 +19,13 @@ import { DiaryLinks } from "@/components/diary/diary-links";
 // hooks
 import { useEditorAsset } from "@/hooks/store/use-editor-asset";
 // services
+import { DIARY_TYPE_LABELS } from "@/lib/diary";
 import { diaryService } from "@/services/diary.service";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { WorkspaceService } from "@/services/workspace.service";
 import type { ProblemTask, PersonalProblem } from "@/services/problem.service";
 
 const workspaceService = new WorkspaceService();
-
-const DIARY_TYPE_LABELS: Record<TDiaryType, string> = {
-  daily: "普通日记",
-  weekly: "周总结",
-  monthly: "月总结",
-  yearly: "年总结",
-};
 
 /** 新建日记的默认信息：保存时才真正落库。 */
 export type DiaryDraft = {

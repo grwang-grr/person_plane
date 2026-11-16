@@ -9,7 +9,8 @@ from django.db import IntegrityError, connection, transaction
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
 
-from plane.db.models import Diary, DiaryLink, Plan, PlanOccurrence
+from plane.db.models import Diary, DiaryLink, Issue, Plan, PlanOccurrence, Project
+from plane.personal.models import Problem
 from plane.personal.identity import bootstrap_identity
 
 BASE = "/api/workspaces/personal/"
@@ -343,3 +344,30 @@ def test_database_rejects_invalid_plan_rules(context, values):
     _, workspace, user = context
     with pytest.raises(IntegrityError), transaction.atomic():
         Plan.objects.create(workspace=workspace, owner=user, title="无效规则", **values)
+
+
+def test_diary_link_labels_use_one_query_per_type(context):
+    client, workspace, user = context
+    source = Diary.objects.create(workspace=workspace, owner=user, diary_date="2026-02-16")
+    project = Project.objects.create(workspace=workspace, name="关联项目", identifier="LINK")
+    expected = {"关联项目"}
+    DiaryLink.objects.create(workspace=workspace, owner=user, diary=source, target_type="project", target_id=project.id)
+    for index in range(6):
+        diary = Diary.objects.create(workspace=workspace, owner=user, title=f"日记 {index}", diary_date="2026-02-16")
+        issue = Issue.objects.create(workspace=workspace, project=project, name=f"任务 {index}")
+        problem = Problem.objects.create(workspace=workspace, number=index + 1, title=f"问题 {index}")
+        for target_type, target, name in (
+            ("diary", diary, diary.title),
+            ("task", issue, issue.name),
+            ("issue", problem, problem.title),
+        ):
+            DiaryLink.objects.create(
+                workspace=workspace, owner=user, diary=source, target_type=target_type, target_id=target.id
+            )
+            expected.add(name)
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get(f"{BASE}diaries/{source.id}/links/")
+    assert response.status_code == 200
+    assert {link["target_label"] for link in response.json()} == expected
+    for table in ("diaries", "issues", "projects", "personal_problem"):
+        assert sum(f'FROM "{table}"' in row["sql"] for row in queries) == 1

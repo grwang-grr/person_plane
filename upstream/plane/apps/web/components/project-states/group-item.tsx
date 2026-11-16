@@ -13,7 +13,7 @@ import { IconButton } from "@makeplane/propel/components/icon-button";
 import { AddOutline, ChevronDownOutline } from "@makeplane/propel/icons";
 // plane imports
 import { StateGroupIcon } from "@plane/blocks/icons";
-import { EIconSize } from "@plane/constants";
+import { EIconSize, getStateGroupMeta } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import type {
   IState,
@@ -67,7 +67,7 @@ export const GroupItem = observer(function GroupItem(props: TGroupItem) {
   // derived values
   const currentStateExpanded = groupsExpanded.includes(groupKey);
   const shouldShowEmptyState = states.length === 0 && currentStateExpanded && !createState;
-  const groupLabel = groupDef?.name || String(groupKey);
+  const groupLabel = groupDef?.name || getStateGroupMeta(groupKey).label;
 
   const isCreateDisabled = !isEditable || createState;
 
@@ -91,12 +91,7 @@ export const GroupItem = observer(function GroupItem(props: TGroupItem) {
         }
         trigger={
           <span className="flex w-full items-center gap-1">
-            <StateGroupIcon
-              stateGroup={groupKey}
-              color={groupDef?.color}
-              size={EIconSize.LG}
-              className="shrink-0"
-            />
+            <StateGroupIcon stateGroup={groupKey} color={groupDef?.color} size={EIconSize.LG} className="shrink-0" />
             <span className="text-body-sm-medium text-primary">{groupLabel}</span>
             <span className="text-body-xs-regular text-tertiary">· {states.length}</span>
           </span>
@@ -115,7 +110,7 @@ export const GroupItem = observer(function GroupItem(props: TGroupItem) {
               type="button"
               variant="ghost"
               size="sm"
-              aria-label={t("common.add")}
+              aria-label={`在「${groupLabel}」中创建状态`}
               disabled={isCreateDisabled}
               onClick={() => {
                 if (!createState) {
@@ -130,7 +125,7 @@ export const GroupItem = observer(function GroupItem(props: TGroupItem) {
       >
         {shouldShowEmptyState && (
           <div className="flex h-full flex-col items-center justify-center py-4 text-body-xs-regular text-tertiary">
-            <div>{t("project_settings.states.empty_state.title", { groupKey })}</div>
+            <div>{t("project_settings.states.empty_state.title", { groupKey: groupLabel })}</div>
             {isEditable && <div>{t("project_settings.states.empty_state.description")}</div>}
           </div>
         )}

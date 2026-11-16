@@ -4,12 +4,13 @@
  * See the LICENSE file for details.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@makeplane/propel/components/button";
 import { InputField } from "@makeplane/propel/components/input-field";
 import { Popover, PopoverContent, PopoverTrigger } from "@makeplane/propel/components/popover";
 import { ColorSwatchPicker } from "@plane/blocks/common";
 import { StateGroupIcon } from "@plane/blocks/icons";
+import { setToast } from "@plane/blocks/toast";
 import { useTranslation } from "@plane/i18n";
 import type { TStateGroupDef } from "@plane/types";
 
@@ -82,19 +83,9 @@ export function StateGroupForm(props: TStateGroupForm) {
   const [errors, setErrors] = useState<TStateGroupFormErrors>({});
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (initial) {
-      setDraft({
-        name: initial.name ?? "",
-        key: initial.key ?? "",
-        color: initial.color ?? DEFAULT_COLOR,
-        is_terminal: initial.is_terminal ?? false,
-      });
-    }
-  }, [initial]);
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (busy || submitDisabled) return;
     if (!draft.name.trim()) {
       setErrors({ name: "名称为必填项" });
       return;
@@ -105,7 +96,7 @@ export function StateGroupForm(props: TStateGroupForm) {
     }
     setBusy(true);
     try {
-      await onSubmit(stateGroupDraftToPartial({ ...draft, name: draft.name.trim(), key: draft.key.trim() }));
+      await onSubmit(stateGroupDraftToPartial(draft));
       setErrors({});
     } catch (error) {
       setErrors(extractStateGroupErrors(error));
@@ -116,7 +107,7 @@ export function StateGroupForm(props: TStateGroupForm) {
 
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border border-subtle bg-layer-2 p-4">
-      <div className="space-y-3">
+      <fieldset disabled={busy || submitDisabled} className="space-y-3">
         <div className="flex items-center gap-2.5">
           <Popover>
             <PopoverTrigger
@@ -167,7 +158,7 @@ export function StateGroupForm(props: TStateGroupForm) {
             type="text"
             name="key"
             aria-label="分组标识"
-            placeholder="分组标识，例如 acceptance（留空则按名称生成）"
+            placeholder="分组标识（可留空，由系统自动生成）"
             value={draft.key}
             onChange={(e) => {
               setDraft((prev) => ({ ...prev, key: e.target.value }));
@@ -186,7 +177,7 @@ export function StateGroupForm(props: TStateGroupForm) {
           />
           终态（该分组下的状态视为已完成，参与进度统计）
         </label>
-      </div>
+      </fieldset>
 
       {errors.form && (
         <p role="alert" className="mt-3 text-body-sm-regular text-danger-primary">
@@ -209,7 +200,7 @@ export function StateGroupForm(props: TStateGroupForm) {
           variant="primary"
           size="md"
           stretch="auto"
-          label={buttonTitle}
+          label={busy ? "保存中…" : buttonTitle}
           loading={busy}
           disabled={busy || submitDisabled}
         />
@@ -233,8 +224,8 @@ export function StateGroupCreate(props: TStateGroupCreate) {
       buttonTitle="创建分组"
       onCancel={handleClose}
       onSubmit={async (formData) => {
-        const payload = stateGroupDraftToPartial(formData);
-        const created = await createGroupCallback(payload);
+        const created = await createGroupCallback(formData);
+        setToast({ type: "success", title: "已创建", message: "状态分组已创建。" });
         handleCreated(created);
         return created;
       }}
@@ -253,14 +244,17 @@ export function StateGroupEdit(props: TStateGroupEdit) {
 
   return (
     <StateGroupForm
+      key={group.id}
       initial={group}
       groupKey={group.key}
       isKeyEditable={!group.is_builtin}
       buttonTitle="保存"
       onCancel={handleClose}
       onSubmit={async (formData) => {
-        const payload = stateGroupDraftToPartial(formData);
-        return await updateGroupCallback(group.id, payload);
+        const updated = await updateGroupCallback(group.id, formData);
+        setToast({ type: "success", title: "已保存", message: "状态分组已更新。" });
+        handleClose();
+        return updated;
       }}
     />
   );

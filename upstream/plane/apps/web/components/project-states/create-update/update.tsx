@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react";
 import { setToast } from "@plane/blocks/toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import type { IState, TStateOperationsCallbacks } from "@plane/types";
 // components
 import { StateForm } from "@/components/project-states";
@@ -28,7 +29,8 @@ export const StateUpdate = observer(function StateUpdate(props: TStateUpdate) {
   };
 
   const onSubmit = async (formData: Partial<IState>) => {
-    if (!state.id) return { status: "error" };
+    if (!state.id || loader) return { status: "error" };
+    setLoader(true);
 
     try {
       await updateStateCallback(state.id, formData);
@@ -40,32 +42,21 @@ export const StateUpdate = observer(function StateUpdate(props: TStateUpdate) {
       handleClose();
       return { status: "success" };
     } catch (error) {
-      const errorStatus = error as { status: number };
-      if (errorStatus?.status === 400) {
-        setToast({
-          type: "error",
-          title: "错误！",
-          message: "已存在同名状态，请使用其他名称。",
-        });
-        return { status: "already_exists" };
-      } else {
-        setToast({
-          type: "error",
-          title: "错误！",
-          message: "无法更新状态，请重试。",
-        });
-        return { status: "error" };
-      }
+      setToast({ type: "error", title: "更新失败", message: getApiErrorMessage(error, "无法更新状态，请重试。") });
+      return { status: "error" };
+    } finally {
+      setLoader(false);
     }
   };
 
   return (
     <StateForm
+      key={state.id}
       data={state}
       onSubmit={onSubmit}
       onCancel={onCancel}
       buttonDisabled={loader}
-      buttonTitle={loader ? `Updating` : `Update`}
+      buttonTitle={loader ? "保存中…" : "保存状态"}
     />
   );
 });

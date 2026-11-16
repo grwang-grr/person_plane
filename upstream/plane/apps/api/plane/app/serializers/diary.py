@@ -2,7 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+# Python imports
+from uuid import UUID
+
 # Third party imports
+from django.apps import apps
 from rest_framework import serializers
 
 # Module imports
@@ -37,25 +41,44 @@ class PlanOccurrenceCreateSerializer(serializers.Serializer):
     date = serializers.DateField()
 
 
-def _resolve_target_label(target_type: str, target_id) -> str:
-    """解析链接目标名称，供前端直接展示，避免逐条回查。"""
-    if target_type == DiaryLink.TargetType.DIARY:
-        row = Diary.objects.filter(pk=target_id).values_list("title", "diary_date").first()
-        if not row:
-            return ""
-        return row[0] or str(row[1])
-    if target_type == DiaryLink.TargetType.PROJECT:
-        return Project.objects.filter(pk=target_id).values_list("name", flat=True).first() or ""
-    if target_type == DiaryLink.TargetType.TASK:
-        return Issue.objects.filter(pk=target_id).values_list("name", flat=True).first() or ""
-    if target_type == DiaryLink.TargetType.ISSUE:
-        # 问题模块仅在个人版存在，缺失时不影响其他环境的加载。
-        try:
-            from plane.personal.models import Problem
-        except Exception:
-            return ""
-        return Problem.objects.filter(pk=target_id).values_list("title", flat=True).first() or ""
-    return ""
+def _resolve_target_labels(links: list[DiaryLink]) -> dict[UUID, str]:
+    """Fetch target labels once per type, keeping each link within its workspace."""
+    labels = {}
+    targets = {
+        DiaryLink.TargetType.DIARY: (Diary, "title"),
+        DiaryLink.TargetType.PROJECT: (Project, "name"),
+        DiaryLink.TargetType.TASK: (Issue, "name"),
+    }
+    if apps.is_installed("plane.personal"):
+        targets[DiaryLink.TargetType.ISSUE] = (apps.get_model("personal", "Problem"), "title")
+    for target_type, (model, name_field) in targets.items():
+        typed_links = [link for link in links if link.target_type == target_type]
+        if not typed_links:
+            continue
+        fields = ["id", "workspace_id", name_field]
+        if target_type == DiaryLink.TargetType.DIARY:
+            fields.extend(["diary_date", "owner_id"])
+        queryset = model.objects.filter(
+            pk__in={link.target_id for link in typed_links},
+            workspace_id__in={link.workspace_id for link in typed_links},
+            deleted_at__isnull=True,
+        )
+        rows = {row["id"]: row for row in queryset.values(*fields)}
+        for link in typed_links:
+            row = rows.get(link.target_id)
+            if not row or row["workspace_id"] != link.workspace_id:
+                continue
+            if target_type == DiaryLink.TargetType.DIARY and row["owner_id"] != link.owner_id:
+                continue
+            labels[link.id] = row[name_field] or str(row.get("diary_date", ""))
+    return labels
+
+
+class DiaryLinkListSerializer(serializers.ListSerializer):
+    def to_representation(self, data):
+        links = list(data.all() if hasattr(data, "all") else data)
+        self.context["target_labels"] = _resolve_target_labels(links)
+        return super().to_representation(links)
 
 
 class DiaryTemplateSerializer(BaseSerializer):
@@ -101,11 +124,15 @@ class DiaryLinkSerializer(BaseSerializer):
 
     class Meta:
         model = DiaryLink
+        list_serializer_class = DiaryLinkListSerializer
         fields = "__all__"
         read_only_fields = ["workspace", "owner", "diary"]
 
     def get_target_label(self, obj) -> str:
-        return _resolve_target_label(obj.target_type, obj.target_id)
+        labels = self.context.get("target_labels")
+        if labels is None:
+            labels = _resolve_target_labels([obj])
+        return labels.get(obj.id, "")
 
 
 class PlanOccurrenceSerializer(BaseSerializer):

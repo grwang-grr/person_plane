@@ -4,6 +4,9 @@
 
 # Python imports
 import re
+from uuid import uuid4
+
+from django.utils.text import slugify
 
 # Module imports
 from .base import BaseSerializer
@@ -45,6 +48,12 @@ class StateSerializer(BaseSerializer):
             project_id = getattr(view, "kwargs", {}).get("project_id")
         if group and project_id and not StateGroupDef.objects.filter(project_id=project_id, key=group).exists():
             raise serializers.ValidationError({"group": "该状态分组不存在，请先在项目设置中创建。"})
+        if project_id and (name := attrs.get("name")):
+            states = State.objects.filter(project_id=project_id, name=name)
+            if self.instance:
+                states = states.exclude(pk=self.instance.pk)
+            if states.exists():
+                raise serializers.ValidationError({"name": "此状态名称已存在，请使用其他名称。"})
         return attrs
 
 
@@ -64,13 +73,15 @@ class StateGroupDefSerializer(BaseSerializer):
         ]
         # The built-in buckets carry analytics semantics, so their key is frozen.
         read_only_fields = ["workspace", "project", "is_builtin"]
-        # The view falls back to slugify(name) when no key is supplied.
+        # Display names may be Chinese; keys remain stable ASCII identifiers.
         extra_kwargs = {"key": {"required": False, "allow_blank": True}}
 
     def validate_key(self, value: str) -> str:
         """Normalize custom keys and keep the built-in analytics buckets reserved."""
         key = (value or "").strip()
         if not key:
+            if self.instance:
+                raise serializers.ValidationError("分组标识不能为空。")
             return key
         if self.instance and getattr(self.instance, "key", None) == key:
             return key
@@ -79,6 +90,12 @@ class StateGroupDefSerializer(BaseSerializer):
         if not STATE_GROUP_KEY_PATTERN.fullmatch(key):
             raise serializers.ValidationError("标识只能包含小写字母、数字、连字符和下划线，且以字母或数字开头。")
         return key
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get("key"):
+            generated = slugify(attrs.get("name", ""))[:32].strip("-_") or f"group-{uuid4().hex[:12]}"
+            attrs["key"] = self.validate_key(generated)
+        return attrs
 
 
 class StateLiteSerializer(BaseSerializer):

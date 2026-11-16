@@ -12,6 +12,12 @@ function findMessage(value: unknown, depth: number): string | undefined {
 export function getApiErrorMessage(failure: unknown, fallback: string): string {
   if (!failure || typeof failure !== "object") return fallback;
   const response = "response" in failure ? failure.response : undefined;
-  const data = response && typeof response === "object" && "data" in response ? response.data : failure;
+  if (failure instanceof Error && !response) return fallback;
+  const data =
+    response && typeof response === "object" && "data" in response
+      ? response.data
+      : "data" in failure
+        ? failure.data
+        : failure;
   return findMessage(data, 3) ?? fallback;
 }

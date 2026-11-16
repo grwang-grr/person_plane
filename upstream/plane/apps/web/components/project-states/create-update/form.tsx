@@ -4,7 +4,8 @@
  * See the LICENSE file for details.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { observer } from "mobx-react";
 import { InputField } from "@makeplane/propel/components/input-field";
 import { Popover, PopoverContent, PopoverTrigger } from "@makeplane/propel/components/popover";
 import { TextAreaField } from "@makeplane/propel/components/text-area-field";
@@ -12,6 +13,7 @@ import { Button } from "@makeplane/propel/components/button";
 import { ColorSwatchPicker } from "@plane/blocks/common";
 import { useTranslation } from "@plane/i18n";
 import { StateGroupIcon } from "@plane/blocks/icons";
+import { getStateGroupMeta } from "@plane/constants";
 import { useProjectState } from "@/hooks/store/use-project-state";
 import type { IState, TStateGroups } from "@plane/types";
 
@@ -35,45 +37,41 @@ function PopoverButton({ color, group }: { color?: string; group?: TStateGroups 
   );
 }
 
-export function StateForm(props: TStateForm) {
+export const StateForm = observer(function StateForm(props: TStateForm) {
   const { data, onSubmit, onCancel, buttonDisabled, buttonTitle } = props;
   // plane hooks
   const { t } = useTranslation();
   const { projectStateGroups } = useProjectState();
   // states
-  const [formData, setFromData] = useState<Partial<IState> | undefined>(undefined);
+  const [formData, setFromData] = useState<Partial<IState>>(() => ({ ...data }));
   const [errors, setErrors] = useState<Partial<Record<keyof IState, string>> | undefined>(undefined);
-
-  useEffect(() => {
-    if (data && !formData) setFromData(data);
-  }, [data, formData]);
 
   const handleFormData = <T extends keyof IState>(key: T, value: IState[T]) => {
     setFromData((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
-  const formSubmit = async (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+  const formSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (buttonDisabled) return;
 
-    const name = formData?.name || undefined;
-    if (!formData || !name) {
-      let currentErrors: Partial<Record<keyof IState, string>> = {};
-      if (!name) currentErrors = { ...currentErrors, name: "名称为必填项" };
-      setErrors(currentErrors);
+    const name = formData.name?.trim();
+    if (!name) {
+      setErrors({ name: "名称为必填项" });
       return;
     }
 
     try {
-      await onSubmit(formData);
+      const result = await onSubmit({ ...formData, name });
+      if (result.status === "already_exists") setErrors({ name: "已存在同名状态" });
     } catch (error) {
       console.log("error", error);
     }
   };
 
   return (
-    <div className="relative rounded-lg border border-subtle bg-layer-2">
-      <div className="space-y-3 p-4">
+    <form onSubmit={formSubmit} className="relative rounded-lg border border-subtle bg-layer-2">
+      <fieldset disabled={buttonDisabled} className="space-y-3 p-4">
         <div className="flex items-center gap-2.5">
           {/* color */}
           <div className="shrink-0">
@@ -107,7 +105,6 @@ export function StateForm(props: TStateForm) {
               value={formData?.name}
               onChange={(e) => handleFormData("name", e.target.value)}
               maxLength={100}
-              autoFocus
               error={errors?.name || undefined}
             />
           </div>
@@ -139,19 +136,19 @@ export function StateForm(props: TStateForm) {
             value={formData?.group ?? data?.group ?? "backlog"}
             onChange={(e) => handleFormData("group", e.target.value as TStateGroups)}
           >
-            {(projectStateGroups.length > 0 ? projectStateGroups.map((g) => ({ key: g.key, name: g.name })) : []).map(
-              (g) => (
-                <option key={g.key} value={g.key}>
-                  {g.name}
-                </option>
-              )
-            )}
+            {projectStateGroups.map((g) => (
+              <option key={g.key} value={g.key}>
+                {g.name}
+              </option>
+            ))}
             {!projectStateGroups.some((g) => g.key === (formData?.group ?? data?.group ?? "backlog")) && (
-              <option value={formData?.group ?? data?.group ?? "backlog"}>{formData?.group ?? data?.group ?? "backlog"}</option>
+              <option value={formData?.group ?? data?.group ?? "backlog"}>
+                {getStateGroupMeta(formData?.group ?? data?.group ?? "backlog").label}
+              </option>
             )}
           </select>
         </div>
-      </div>
+      </fieldset>
       <div className="flex items-center justify-end gap-3 border-t border-subtle-1 px-4 py-3">
         <Button
           type="button"
@@ -163,14 +160,14 @@ export function StateForm(props: TStateForm) {
           onClick={onCancel}
         />
         <Button
+          type="submit"
           variant="primary"
           size="md"
           stretch="auto"
           label={buttonTitle}
-          onClick={formSubmit}
           disabled={buttonDisabled}
         />
       </div>
-    </div>
+    </form>
   );
-}
+});

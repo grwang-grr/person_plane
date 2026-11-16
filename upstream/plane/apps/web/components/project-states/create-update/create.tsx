@@ -8,6 +8,7 @@ import { useState } from "react";
 import { observer } from "mobx-react";
 import { getStateGroupMeta } from "@plane/constants";
 import { setToast } from "@plane/blocks/toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import type { IState, TStateGroups, TStateOperationsCallbacks } from "@plane/types";
 // components
 import { StateForm } from "@/components/project-states";
@@ -30,10 +31,11 @@ export const StateCreate = observer(function StateCreate(props: TStateCreate) {
   };
 
   const onSubmit = async (formData: Partial<IState>) => {
-    if (!groupKey) return { status: "error" };
+    if (!groupKey || loader) return { status: "error" };
+    setLoader(true);
 
     try {
-      await createStateCallback({ ...formData, group: groupKey });
+      await createStateCallback({ ...formData, group: formData.group ?? groupKey });
 
       setToast({
         type: "success",
@@ -43,22 +45,10 @@ export const StateCreate = observer(function StateCreate(props: TStateCreate) {
       handleClose();
       return { status: "success" };
     } catch (error) {
-      const errorStatus = error as { status: number; data: { error: string } };
-      if (errorStatus?.status === 400) {
-        setToast({
-          type: "error",
-          title: "错误！",
-          message: "此状态名称已存在，请使用其他名称。",
-        });
-        return { status: "already_exists" };
-      } else {
-        setToast({
-          type: "error",
-          title: "错误！",
-          message: errorStatus.data.error ?? "无法创建状态，请重试。",
-        });
-        return { status: "error" };
-      }
+      setToast({ type: "error", title: "创建失败", message: getApiErrorMessage(error, "无法创建状态，请重试。") });
+      return { status: "error" };
+    } finally {
+      setLoader(false);
     }
   };
 
@@ -68,7 +58,7 @@ export const StateCreate = observer(function StateCreate(props: TStateCreate) {
       onSubmit={onSubmit}
       onCancel={onCancel}
       buttonDisabled={loader}
-      buttonTitle={loader ? `Creating` : `Create`}
+      buttonTitle={loader ? "创建中…" : "创建状态"}
     />
   );
 });

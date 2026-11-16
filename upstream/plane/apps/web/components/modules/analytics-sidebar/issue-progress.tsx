@@ -10,7 +10,7 @@ import { useSearchParams } from "next/navigation";
 import { WarningCircleOutline } from "@makeplane/propel/icons";
 import { EEstimateSystem } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
-import type { TModulePlotType, TStateGroups } from "@plane/types";
+import type { TModulePlotType } from "@plane/types";
 import { EIssuesStoreType } from "@plane/types";
 import { Select } from "@plane/blocks/select";
 import { Spinner } from "@plane/blocks/spinner";
@@ -63,7 +63,7 @@ export const ModuleAnalyticsProgress = observer(function ModuleAnalyticsProgress
   const selectedStateGroups = moduleFilter?.findFirstConditionByPropertyAndOperator("state_group", "in");
   const moduleDetails = getModuleById(moduleId);
   const plotType: TModulePlotType = getPlotTypeByModuleId(moduleId);
-  const isCurrentProjectEstimateEnabled = projectId && areEstimateEnabledByProjectId(projectId) ? true : false;
+  const isCurrentProjectEstimateEnabled = Boolean(projectId && areEstimateEnabledByProjectId(projectId));
   const estimateDetails =
     isCurrentProjectEstimateEnabled && currentActiveEstimateId && estimateById(currentActiveEstimateId);
   const isCurrentEstimateTypeIsPoints = estimateDetails && estimateDetails?.type === EEstimateSystem.POINTS;

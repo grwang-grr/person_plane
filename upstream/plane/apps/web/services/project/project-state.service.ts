@@ -16,7 +16,7 @@ export class ProjectStateService extends APIService {
     super(API_BASE_URL);
   }
 
-  async createState(workspaceSlug: string, projectId: string, data: any): Promise<IState> {
+  async createState(workspaceSlug: string, projectId: string, data: Partial<IState>): Promise<IState> {
     return this.post(`/api/workspaces/${workspaceSlug}/projects/${projectId}/states/`, data)
       .then((response) => response?.data)
       .catch((error) => {
@@ -48,7 +48,7 @@ export class ProjectStateService extends APIService {
       });
   }
 
-  async getState(workspaceSlug: string, projectId: string, stateId: string): Promise<any> {
+  async getState(workspaceSlug: string, projectId: string, stateId: string): Promise<IState> {
     return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/states/${stateId}/`)
       .then((response) => response?.data)
       .catch((error) => {
@@ -56,7 +56,7 @@ export class ProjectStateService extends APIService {
       });
   }
 
-  async updateState(workspaceSlug: string, projectId: string, stateId: string, data: IState): Promise<any> {
+  async updateState(workspaceSlug: string, projectId: string, stateId: string, data: IState): Promise<IState> {
     return this.put(`/api/workspaces/${workspaceSlug}/projects/${projectId}/states/${stateId}/`, data)
       .then((response) => response?.data)
       .catch((error) => {
@@ -64,7 +64,7 @@ export class ProjectStateService extends APIService {
       });
   }
 
-  async patchState(workspaceSlug: string, projectId: string, stateId: string, data: Partial<IState>): Promise<any> {
+  async patchState(workspaceSlug: string, projectId: string, stateId: string, data: Partial<IState>): Promise<IState> {
     return this.patch(`/api/workspaces/${workspaceSlug}/projects/${projectId}/states/${stateId}/`, data)
       .then((response) => response?.data)
       .catch((error) => {
@@ -72,7 +72,7 @@ export class ProjectStateService extends APIService {
       });
   }
 
-  async deleteState(workspaceSlug: string, projectId: string, stateId: string): Promise<any> {
+  async deleteState(workspaceSlug: string, projectId: string, stateId: string): Promise<void> {
     return this.delete(`/api/workspaces/${workspaceSlug}/projects/${projectId}/states/${stateId}/`)
       .then((response) => response?.data)
       .catch((error) => {

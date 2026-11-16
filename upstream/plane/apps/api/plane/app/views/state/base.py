@@ -8,8 +8,10 @@ from collections import defaultdict
 
 # Django imports
 from django.db.models import Case, Value, When
+from django.db import transaction
 from django.db.utils import IntegrityError
-from django.utils.text import slugify
+from django.utils import timezone
+from django.shortcuts import get_object_or_404
 
 # Third party imports
 from rest_framework.response import Response
@@ -192,25 +194,9 @@ class StateGroupViewSet(BaseViewSet):
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            project = Project.objects.get(pk=project_id, workspace__slug=slug)
-            key = (serializer.validated_data.get("key") or "").strip() or slugify(
-                serializer.validated_data.get("name", "")
-            )
-            if not key:
-                return Response({"name": "请填写分组名称"}, status=status.HTTP_400_BAD_REQUEST)
-            if key in set(StateGroup.values):
-                return Response({"key": "该标识为内置分组保留，请使用其他标识。"}, status=status.HTTP_400_BAD_REQUEST)
-
-            group = StateGroupDef.objects.create(
-                project=project,
-                workspace=project.workspace,
-                key=key,
-                name=serializer.validated_data["name"],
-                color=serializer.validated_data.get("color", "#8B5CF6"),
-                sequence=serializer.validated_data.get("sequence", 65535),
-                is_terminal=serializer.validated_data.get("is_terminal", False),
-                created_by=request.user,
-            )
+            project = get_object_or_404(Project, pk=project_id, workspace__slug=slug)
+            with transaction.atomic():
+                group = serializer.save(project=project, workspace=project.workspace, created_by=request.user)
             return Response(StateGroupDefSerializer(group).data, status=status.HTTP_201_CREATED)
         except IntegrityError:
             return Response({"key": "该分组标识已存在。"}, status=status.HTTP_400_BAD_REQUEST)
@@ -218,20 +204,27 @@ class StateGroupViewSet(BaseViewSet):
     @invalidate_cache(path="workspaces/:slug/projects/:project_id/state-groups/", url_params=True, user=False)
     @allow_permission([ROLE.ADMIN])
     def partial_update(self, request, slug, project_id, pk):
-        group = StateGroupDef.objects.get(pk=pk, project_id=project_id, workspace__slug=slug)
+        group = self.get_object()
 
-        if group.is_builtin and "key" in request.data and request.data["key"] != group.key:
+        if (
+            (group.is_builtin or group.key in StateGroup.values)
+            and "key" in request.data
+            and request.data["key"] != group.key
+        ):
             return Response({"key": "内置分组的标识不可修改。"}, status=status.HTTP_400_BAD_REQUEST)
-
-        if group.key in dict(StateGroup.choices) and "key" in request.data and request.data["key"] != group.key:
-            return Response({"key": "该分组的标识不可修改。"}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = StateGroupDefSerializer(group, data=request.data, partial=True)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            serializer.save()
+            with transaction.atomic():
+                old_key = group.key
+                serializer.save()
+                if group.key != old_key:
+                    State.objects.filter(project_id=project_id, group=old_key).update(
+                        group=group.key, updated_at=timezone.now(), updated_by=request.user
+                    )
         except IntegrityError:
             return Response({"key": "该分组标识已存在。"}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -239,7 +232,7 @@ class StateGroupViewSet(BaseViewSet):
     @invalidate_cache(path="workspaces/:slug/projects/:project_id/state-groups/", url_params=True, user=False)
     @allow_permission([ROLE.ADMIN])
     def destroy(self, request, slug, project_id, pk):
-        group = StateGroupDef.objects.get(pk=pk, project_id=project_id, workspace__slug=slug)
+        group = self.get_object()
 
         if group.is_builtin:
             return Response({"error": "内置分组不可删除"}, status=status.HTTP_400_BAD_REQUEST)

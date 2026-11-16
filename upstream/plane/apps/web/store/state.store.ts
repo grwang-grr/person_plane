@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { set, groupBy } from "lodash-es";
+import { set, groupBy, sortBy } from "lodash-es";
 import { action, computed, makeObservable, observable, runInAction } from "mobx";
 import { computedFn } from "mobx-utils";
 // plane imports
@@ -76,7 +76,7 @@ export interface IStateStore {
 export class StateStore implements IStateStore {
   stateMap: Record<string, IState> = {};
   intakeStateMap: Record<string, IIntakeState> = {};
-  /** Grouping buckets per project, keyed by their slug. */
+  /** Group definitions across projects, indexed by ID. */
   stateGroupMap: Record<string, TStateGroupDef> = {};
   fetchedGroupMap: Record<string, boolean> = {};
   //loaders
@@ -90,9 +90,11 @@ export class StateStore implements IStateStore {
     makeObservable(this, {
       // observables
       stateMap: observable,
+      stateGroupMap: observable,
       intakeStateMap: observable,
       fetchedMap: observable,
       fetchedIntakeMap: observable,
+      fetchedGroupMap: observable,
       // computed
       projectStates: computed,
       groupedProjectStates: computed,
@@ -149,13 +151,8 @@ export class StateStore implements IStateStore {
     // legacy groups the states still carry but no longer have a definition for.
     const orderedKeys = this.projectStateGroups.map((group) => group.key);
     const leftovers = Object.keys(groupedStates).filter((key) => !orderedKeys.includes(key));
-    const allGroups = [...orderedKeys, ...leftovers].reduce(
-      (acc, group) => ({
-        // oxlint-disable-next-line oxc/no-accumulating-spread
-        ...acc,
-        [group]: groupedStates[group] || [],
-      }),
-      {} as Record<string, IState[]>
+    const allGroups = Object.fromEntries(
+      [...orderedKeys, ...leftovers].map((group) => [group, groupedStates[group] ?? []])
     );
 
     return allGroups;
@@ -164,12 +161,13 @@ export class StateStore implements IStateStore {
   /**
    * Returns the defined grouping buckets for the current project
    */
-  get projectStateGroups() {
+  get projectStateGroups(): TStateGroupDef[] {
     const projectId = this.router.projectId;
     if (!projectId) return [];
-    return Object.values(this.stateGroupMap)
-      .filter((group) => group.project_id === projectId)
-      .sort((a, b) => a.sequence - b.sequence);
+    return sortBy(
+      Object.values(this.stateGroupMap).filter((group) => group.project_id === projectId && group.key !== "triage"),
+      "sequence"
+    );
   }
 
   /**
@@ -287,6 +285,10 @@ export class StateStore implements IStateStore {
   fetchProjectStateGroups = async (workspaceSlug: string, projectId: string) => {
     const groupsResponse = await this.stateService.getStateGroups(workspaceSlug, projectId);
     runInAction(() => {
+      const groupIds = new Set(groupsResponse.map((group) => group.id));
+      for (const group of Object.values(this.stateGroupMap)) {
+        if (group.project_id === projectId && !groupIds.has(group.id)) delete this.stateGroupMap[group.id];
+      }
       groupsResponse.forEach((group) => {
         set(this.stateGroupMap, [group.id], group);
       });
@@ -311,7 +313,7 @@ export class StateStore implements IStateStore {
     });
 
   /**
-   * updates a state group in the store, in case of failure reverts back to original group
+   * Updates a state group after the server confirms the change
    * @param workspaceSlug
    * @param projectId
    * @param groupId
@@ -324,40 +326,30 @@ export class StateStore implements IStateStore {
     groupId: string,
     data: Partial<TStateGroupDef>
   ) => {
-    const originalGroup = this.stateGroupMap[groupId];
-    try {
-      const response = await this.stateService.patchStateGroup(workspaceSlug, projectId, groupId, data);
-      runInAction(() => {
-        set(this.stateGroupMap, [response?.id], response);
-      });
-      return response;
-    } catch (error) {
-      runInAction(() => {
-        if (originalGroup) set(this.stateGroupMap, [groupId], originalGroup);
-      });
-      throw error;
-    }
+    const oldKey = this.stateGroupMap[groupId]?.key;
+    const response = await this.stateService.patchStateGroup(workspaceSlug, projectId, groupId, data);
+    runInAction(() => {
+      set(this.stateGroupMap, [response.id], response);
+      if (oldKey && oldKey !== response.key) {
+        for (const state of Object.values(this.stateMap)) {
+          if (state.project_id === projectId && state.group === oldKey) state.group = response.key;
+        }
+      }
+    });
+    return response;
   };
 
   /**
-   * deletes the state group from the store, in case of failure reverts back to original group
+   * Deletes a state group after the server confirms deletion
    * @param workspaceSlug
    * @param projectId
    * @param groupId
    */
   deleteStateGroup = async (workspaceSlug: string, projectId: string, groupId: string) => {
     if (!this.stateGroupMap?.[groupId]) return;
-    const originalGroup = this.stateGroupMap[groupId];
-    // oxlint-disable-next-line promise/always-return
-    await this.stateService.deleteStateGroup(workspaceSlug, projectId, groupId).then(() => {
-      runInAction(() => {
-        delete this.stateGroupMap[groupId];
-      });
-    }).catch((error) => {
-      runInAction(() => {
-        set(this.stateGroupMap, [groupId], originalGroup);
-      });
-      throw error;
+    await this.stateService.deleteStateGroup(workspaceSlug, projectId, groupId);
+    runInAction(() => {
+      delete this.stateGroupMap[groupId];
     });
   };
 
